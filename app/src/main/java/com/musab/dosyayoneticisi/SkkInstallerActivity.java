@@ -30,7 +30,19 @@ public class SkkInstallerActivity extends Activity {
         root.setPadding(22, 28, 22, 28);
         root.setBackgroundColor(Color.BLACK);
 
-        LinearLayout appHead = new LinearLayout(this);\n        appHead.setOrientation(LinearLayout.VERTICAL);\n        appHead.setGravity(Gravity.CENTER);\n        try {\n            android.content.pm.ApplicationInfo ai=getApplicationInfo();\n            ImageView appIcon=new ImageView(this); appIcon.setImageDrawable(ai.loadIcon(getPackageManager()));\n            appHead.addView(appIcon,new LinearLayout.LayoutParams(72,72));\n            TextView appName=new TextView(this); appName.setText(String.valueOf(ai.loadLabel(getPackageManager()))); appName.setTextColor(Color.WHITE); appName.setTextSize(17); appName.setGravity(Gravity.CENTER);\n            appHead.addView(appName,new LinearLayout.LayoutParams(-1,42));\n        } catch(Exception ignored) {}\n        root.addView(appHead,new LinearLayout.LayoutParams(-1,125));\n\n        TextView character = new TextView(this);
+        LinearLayout appHead = new LinearLayout(this);
+        appHead.setOrientation(LinearLayout.VERTICAL);
+        appHead.setGravity(Gravity.CENTER);
+        try {
+            android.content.pm.ApplicationInfo ai=getApplicationInfo();
+            ImageView appIcon=new ImageView(this); appIcon.setImageDrawable(ai.loadIcon(getPackageManager()));
+            appHead.addView(appIcon,new LinearLayout.LayoutParams(72,72));
+            TextView appName=new TextView(this); appName.setText(String.valueOf(ai.loadLabel(getPackageManager()))); appName.setTextColor(Color.WHITE); appName.setTextSize(17); appName.setGravity(Gravity.CENTER);
+            appHead.addView(appName,new LinearLayout.LayoutParams(-1,42));
+        } catch(Exception ignored) {}
+        root.addView(appHead,new LinearLayout.LayoutParams(-1,125));
+
+        TextView character = new TextView(this);
         character.setText("  /\\_/\\\\\n (  o o  )\\n  >  <3  <");
         character.setTextColor(Color.WHITE);
         character.setTextSize(25);
