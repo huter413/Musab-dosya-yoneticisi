@@ -27,12 +27,12 @@ public class MainActivity extends Activity{
  boolean isVideo(String x){return x.endsWith(".mp4")||x.endsWith(".mkv")||x.endsWith(".webm")||x.endsWith(".3gp")||x.endsWith(".avi")||x.endsWith(".mov")||x.endsWith(".m4v");}
  boolean isAudio(String x){return x.endsWith(".mp3")||x.endsWith(".wav")||x.endsWith(".ogg")||x.endsWith(".m4a")||x.endsWith(".aac")||x.endsWith(".flac")||x.endsWith(".opus");}
  String getMime(String x){if(isImage(x))return "image/*";if(isVideo(x))return "video/*";if(isAudio(x))return "audio/*";if(x.endsWith(".apk"))return "application/vnd.android.package-archive";if(isText(x))return "text/plain";return "*/*";}
- void newDialog(){new AlertDialog.Builder(this).setTitle("Yeni").setItems(new String[]{"Klasör","Dosya"},(d,w)->{if(w==0)newFolder();else newFile();}).show();}
+ void newDialog(){new AlertDialog.Builder(this).setTitle("Yeni").setItems(new String[]{"Klasör","Dosya","Arşiv oluştur"},(d,w)->{if(w==0)newFolder();else if(w==1)newFile();else archiveDialog(null);}).show();}
  void newFolder(){prompt("Yeni klasör adı","",s->{File f=new File(current,s);if(!f.mkdir())toast("Oluşturulamadı");refresh();});}
  void newFile(){prompt("Yeni dosya adı","",s->{try{new File(current,s).createNewFile();refresh();}catch(Exception e){toast(e.getMessage());}});}
  void prompt(String title,String value,Callback cb){EditText e=new EditText(this);e.setText(value);new AlertDialog.Builder(this).setTitle(title).setView(e).setPositiveButton("Tamam",(d,w)->{String s=e.getText().toString().trim();if(!s.isEmpty())cb.run(s);}).setNegativeButton("İptal",null).show();}
  interface Callback{void run(String s);}
- void fileMenu(File f){String[] a={"Aç","Yeniden adlandır","Kopyala","Kes","Sil","Özellikler","Paylaş","ZIP oluştur"};new AlertDialog.Builder(this).setTitle(f.getName()).setItems(a,(d,w)->{switch(w){case 0:openFile(f);break;case 1:rename(f);break;case 2:clipboard=f;cutMode=false;toast("Kopyalandı");break;case 3:clipboard=f;cutMode=true;toast("Kesildi");break;case 4:confirmDelete(f);break;case 5:properties(f);break;case 6:share(f);break;case 7:zipSingle(f);break;}}).show();}
+ void fileMenu(File f){String[] a={"Aç","Yeniden adlandır","Kopyala","Kes","Sil","Özellikler","Paylaş","Arşiv oluştur"};new AlertDialog.Builder(this).setTitle(f.getName()).setItems(a,(d,w)->{switch(w){case 0:openFile(f);break;case 1:rename(f);break;case 2:clipboard=f;cutMode=false;toast("Kopyalandı");break;case 3:clipboard=f;cutMode=true;toast("Kesildi");break;case 4:confirmDelete(f);break;case 5:properties(f);break;case 6:share(f);break;case 7:archiveDialog(f);break;}}).show();}
  void rename(File f){prompt("Yeniden adlandır",f.getName(),s->{if(!f.renameTo(new File(f.getParentFile(),s)))toast("Ad değiştirilemedi");refresh();});}
  void confirmDelete(File f){new AlertDialog.Builder(this).setTitle("Silinsin mi?").setMessage(f.getAbsolutePath()).setPositiveButton("Sil",(d,w)->{deleteRecursive(f);refresh();}).setNegativeButton("İptal",null).show();}
  void deleteRecursive(File f){if(f.isDirectory()){File[] c=f.listFiles();if(c!=null)for(File x:c)deleteRecursive(x);}f.delete();}
@@ -40,8 +40,37 @@ public class MainActivity extends Activity{
  void share(File f){try{Uri u=FileProvider.getUriForFile(this,getPackageName()+".fileprovider",f);Intent i=new Intent(Intent.ACTION_SEND);i.setType(getMime(f.getName().toLowerCase(Locale.ROOT)));i.putExtra(Intent.EXTRA_STREAM,u);i.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);startActivity(Intent.createChooser(i,"Paylaş"));}catch(Exception e){toast(e.getMessage());}}
  void paste(){if(clipboard==null){toast("Panoda dosya yok");return;}File dst=new File(current,clipboard.getName());try{if(dst.exists())deleteRecursive(dst);copyRecursive(clipboard,dst);if(cutMode)deleteRecursive(clipboard);clipboard=null;refresh();}catch(Exception e){toast("Yapıştırma hatası: "+e.getMessage());}}
  void copyRecursive(File a,File b)throws Exception{if(a.isDirectory()){b.mkdirs();File[] c=a.listFiles();if(c!=null)for(File x:c)copyRecursive(x,new File(b,x.getName()));}else{InputStream in=new FileInputStream(a);OutputStream out=new FileOutputStream(b);byte[] buf=new byte[8192];int n;while((n=in.read(buf))>0)out.write(buf,0,n);in.close();out.close();}}
- void zipSingle(File f){File out=new File(current,f.getName()+".zip");try{ZipOutputStream z=new ZipOutputStream(new FileOutputStream(out));zipRec(f,z,f.getName());z.close();refresh();}catch(Exception e){toast("ZIP hatası: "+e.getMessage());}}
- void zipRec(File f,ZipOutputStream z,String path)throws Exception{if(f.isDirectory()){File[] c=f.listFiles();if(c==null||c.length==0){z.putNextEntry(new ZipEntry(path+"/"));z.closeEntry();}else for(File x:c)zipRec(x,z,path+"/"+x.getName());}else{z.putNextEntry(new ZipEntry(path));InputStream in=new FileInputStream(f);byte[] b=new byte[8192];int n;while((n=in.read(b))>0)z.write(b,0,n);in.close();z.closeEntry();}}
+ void archiveDialog(File source){
+ LinearLayout box=new LinearLayout(this);box.setOrientation(LinearLayout.VERTICAL);box.setPadding(20,4,20,4);
+ TextView typeLabel=tv("Arşiv türü",14);box.addView(typeLabel);
+ Spinner type=new Spinner(this);String[] types={"ZIP","ZIP (sıkıştırmasız)"};type.setAdapter(new ArrayAdapter<String>(this,android.R.layout.simple_spinner_dropdown_item,types));box.addView(type);
+ EditText name=new EditText(this);name.setSingleLine(true);name.setHint("Arşiv adı");String base=source==null?"arsiv":source.getName();if(base.toLowerCase(Locale.ROOT).endsWith(".zip"))base=base.substring(0,base.length()-4);name.setText(base);name.setSelectAllOnFocus(true);box.addView(name);
+ TextView info=tv("Çıktı: "+current.getAbsolutePath(),12);info.setMaxLines(2);info.setEllipsize(android.text.TextUtils.TruncateAt.MIDDLE);box.addView(info);
+ new AlertDialog.Builder(this).setTitle(source==null?"Arşiv oluştur":"Arşiv oluştur: "+source.getName()).setView(box).setPositiveButton("Oluştur",(d,w)->{
+   String n=name.getText().toString().trim();if(n.isEmpty()){toast("Arşiv adı boş olamaz");return;}if(!n.toLowerCase(Locale.ROOT).endsWith(".zip"))n+=".zip";
+   File out=new File(current,n);if(source==null){toast("Arşiv oluşturmak için önce bir dosya/klasör seç");return;}
+   createZipArchive(source,out,type.getSelectedItemPosition()==1);
+ }).setNegativeButton("İptal",null).show();
+}
+ void createZipArchive(File source,File out,boolean stored){
+ if(out.equals(source)||out.getAbsolutePath().startsWith(source.getAbsolutePath()+File.separator)){toast("Arşiv hedefi kaynak klasörün içinde olamaz");return;}
+ if(out.exists()){new AlertDialog.Builder(this).setTitle("Dosya zaten var").setMessage(out.getName()+" üzerine yazılsın mı?").setPositiveButton("Üzerine yaz",(d,w)->writeZip(source,out,stored)).setNegativeButton("İptal",null).show();}else writeZip(source,out,stored);
+}
+void writeZip(File source,File out,boolean stored){
+ try{
+   File tmp=new File(out.getParentFile(),out.getName()+".part");
+   if(tmp.exists())tmp.delete();
+   try(ZipOutputStream z=new ZipOutputStream(new BufferedOutputStream(new FileOutputStream(tmp)))){
+     if(stored)z.setLevel(java.util.zip.Deflater.NO_COMPRESSION);
+     zipRec(source,z,source.getName());
+   }
+   try(ZipFile verify=new ZipFile(tmp)){verify.size();}
+   if(out.exists()&&!out.delete())throw new IOException("Eski arşiv silinemedi");
+   if(!tmp.renameTo(out))throw new IOException("Arşiv dosyası oluşturulamadı");
+   refresh();toast("Geçerli ZIP oluşturuldu: "+out.getName());
+ }catch(Exception e){new File(out.getParentFile(),out.getName()+".part").delete();toast("ZIP oluşturma hatası: "+e.getMessage());}
+}
+void zipRec(File f,ZipOutputStream z,String path)throws Exception{if(f.isDirectory()){File[] c=f.listFiles();if(c==null||c.length==0){z.putNextEntry(new ZipEntry(path+"/"));z.closeEntry();}else for(File x:c)zipRec(x,z,path+"/"+x.getName());}else{z.putNextEntry(new ZipEntry(path));InputStream in=new FileInputStream(f);byte[] b=new byte[8192];int n;while((n=in.read(b))>0)z.write(b,0,n);in.close();z.closeEntry();}}
  void apps(){final PackageManager pm=getPackageManager();LinearLayout l=new LinearLayout(this);l.setOrientation(LinearLayout.VERTICAL);TextView count=tv("Uygulamalar yükleniyor...",16);l.addView(count);ScrollView s=new ScrollView(this);s.addView(l);new AlertDialog.Builder(this).setTitle("APK Çıkar").setView(s).setPositiveButton("Kapat",null).show();new Thread(()->{List<ApplicationInfo> all=pm.getInstalledApplications(PackageManager.GET_META_DATA);all.sort((a,b)->String.valueOf(a.loadLabel(pm)).compareToIgnoreCase(String.valueOf(b.loadLabel(pm))));runOnUiThread(()->{l.removeAllViews();long uc=all.stream().filter(a->(a.flags&ApplicationInfo.FLAG_SYSTEM)==0).count(),sc=all.size()-uc;Button user=btn("Kullanıcı Uygulamaları ("+uc+")"),sys=btn("Sistem Uygulamaları ("+sc+")");l.addView(user);l.addView(sys);LinearLayout results=new LinearLayout(this);results.setOrientation(LinearLayout.VERTICAL);l.addView(results);count.setText("Toplam görünür uygulama: "+all.size());user.setOnClickListener(v->showAppsList(results,all,false,pm));sys.setOnClickListener(v->showAppsList(results,all,true,pm));showAppsList(results,all,false,pm);});}).start();}
  void showAppsList(LinearLayout l,List<ApplicationInfo> all,boolean system,PackageManager pm){l.removeAllViews();l.addView(tv(system?"Tüm sistem uygulamaları":"Tüm kullanıcı uygulamaları",18));int shown=0;for(ApplicationInfo ai:all){boolean isSystem=(ai.flags&ApplicationInfo.FLAG_SYSTEM)!=0;if(isSystem!=system)continue;LinearLayout row=new LinearLayout(this);row.setGravity(Gravity.CENTER_VERTICAL);ImageView iv=new ImageView(this);Drawable d=ai.loadIcon(pm);iv.setImageDrawable(d);TextView t=tv(String.valueOf(ai.loadLabel(pm))+"\n"+ai.packageName,16);t.setGravity(Gravity.CENTER_VERTICAL);t.setMaxLines(2);t.setEllipsize(android.text.TextUtils.TruncateAt.END);t.setPadding(8,3,8,3);row.addView(iv,new LinearLayout.LayoutParams(54,72));row.addView(t,new LinearLayout.LayoutParams(0,72,1));row.setPadding(4,3,4,3);row.setOnClickListener(v->appDetails(ai,pm));l.addView(row,new LinearLayout.LayoutParams(-1,78));shown++;}if(shown==0)l.addView(tv("Bu kategoride uygulama bulunamadı.",16));}
  void appDetails(ApplicationInfo ai,PackageManager pm){String label=String.valueOf(ai.loadLabel(pm));PackageInfo pi;try{pi=pm.getPackageInfo(ai.packageName,0);}catch(Exception e){toast("Uygulama bilgisi okunamadı");return;}long vc=Build.VERSION.SDK_INT>=28?pi.getLongVersionCode():pi.versionCode;File apk=new File(ai.sourceDir);String msg=label+"\n"+ai.packageName+"\nSürüm: "+pi.versionName+" ("+vc+")\nTemel APK: "+ai.sourceDir+"\nBoyut: "+human(apk.length())+"\nEk APK parçaları: "+(ai.splitSourceDirs==null?0:ai.splitSourceDirs.length);new AlertDialog.Builder(this).setTitle("Uygulama").setMessage(msg).setPositiveButton("APK Çıkar",(d,w)->extractApk(ai)).setNeutralButton("APK içeriği",(d,w)->apkContents(apk)).setNegativeButton("Kapat",null).show();}
