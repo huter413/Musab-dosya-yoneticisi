@@ -22,7 +22,7 @@ public class MainActivity extends Activity {
     final File STORAGE = Environment.getExternalStorageDirectory();
     final File MUSAB = new File(STORAGE, "MusabFolder");
     final File APKS = new File(MUSAB, "apks");
-    int pad = 16;
+    int pad = 22; boolean gridView = false; boolean sortBySize = false; final int BG=Color.rgb(10,10,12), PANEL=Color.rgb(24,24,28), FG=Color.WHITE, MUTED=Color.rgb(170,170,180);
 
     @Override public void onCreate(Bundle b) {
         super.onCreate(b);
@@ -57,14 +57,14 @@ public class MainActivity extends Activity {
     Button btn(String s) { Button b = new Button(this); b.setText(s); return b; }
 
     void build() {
-        root = new LinearLayout(this); root.setOrientation(LinearLayout.VERTICAL);
-        TextView title = tv("MusabDosya Yöneticisi", 21);
+        root = new LinearLayout(this); root.setOrientation(LinearLayout.VERTICAL); root.setBackgroundColor(BG);
+        TextView title = tv("☰  MusabDosya Yöneticisi", 25); title.setTextColor(FG);
         root.addView(title);
 
         LinearLayout nav = new LinearLayout(this);
         Button back = btn("‹");
         back.setOnClickListener(v -> goParent());
-        pathEdit = new EditText(this); pathEdit.setSingleLine(true);
+        pathEdit = new EditText(this); pathEdit.setSingleLine(true); pathEdit.setTextSize(18); pathEdit.setImeOptions(android.view.inputmethod.EditorInfo.IME_ACTION_GO); pathEdit.setOnEditorActionListener((v,id,e)->{navigate(pathEdit.getText().toString()); return true;});
         Button go = btn("Git");
         go.setOnClickListener(v -> navigate(pathEdit.getText().toString()));
         nav.addView(back,new LinearLayout.LayoutParams(56,-2));
@@ -102,7 +102,7 @@ public class MainActivity extends Activity {
     void navigate(String p) {
         if (p == null || p.trim().isEmpty()) return;
         File f = new File(p.trim());
-        if (f.isDirectory()) { current=f; refresh(); }
+        if (f.isDirectory()) { current=f.getCanonicalFile(); refresh(); }
         else Toast.makeText(this,"Dizin bulunamadı",Toast.LENGTH_SHORT).show();
     }
     void goParent() {
@@ -110,12 +110,12 @@ public class MainActivity extends Activity {
     }
 
     void refresh() {
-        pathEdit.setText(current.getAbsolutePath());
+        pathEdit.setText(current.getAbsolutePath()); pathEdit.setSelection(pathEdit.length());
         list.removeAllViews();
         String q = searchEdit==null ? "" : searchEdit.getText().toString().trim().toLowerCase(Locale.ROOT);
         File[] fs = current.listFiles();
         if(fs==null){ list.addView(tv("Erişim yok veya klasör boş.",16)); return; }
-        Arrays.sort(fs,(a,b)->{
+        Arrays.sort(fs,(a,b)->{ if(sortBySize && !a.isDirectory() && !b.isDirectory()) return Long.compare(b.length(),a.length());
             if(a.isDirectory()!=b.isDirectory()) return a.isDirectory()?-1:1;
             return a.getName().compareToIgnoreCase(b.getName());
         });
@@ -127,11 +127,19 @@ public class MainActivity extends Activity {
         if(shown==0) list.addView(tv("Sonuç yok.",16));
     }
 
-    void addItem(File f) {
+    void addGridItem(File f) {
+        LinearLayout row=new LinearLayout(this); row.setOrientation(LinearLayout.VERTICAL); row.setGravity(Gravity.CENTER); row.setPadding(pad,pad,pad,pad); row.setBackgroundColor(PANEL);
+        TextView ic=tv(f.isDirectory()?(specialName(f)?"☺️":"📁"):"📄",38); row.addView(ic,new LinearLayout.LayoutParams(-1,58));
+        TextView nm=tv(f.getName(),16); nm.setGravity(Gravity.CENTER); nm.setTextColor(FG); row.addView(nm,new LinearLayout.LayoutParams(-1,58));
+        row.setOnClickListener(v->{if(f.isDirectory()){current=f;refresh();}else openFile(f);}); row.setOnLongClickListener(v->{fileMenu(f);return true;});
+        LinearLayout.LayoutParams lp=new LinearLayout.LayoutParams(-1,130); lp.setMargins(6,6,6,6); list.addView(row,lp);
+    }
+
+    void addItem(File f) { if(gridView){ addGridItem(f); return; }
         LinearLayout row=new LinearLayout(this);
         row.setGravity(Gravity.CENTER_VERTICAL);
-        TextView icon=tv(f.isDirectory()?"📁":"📄",28);
-        TextView name=tv(specialName(f) ? "☺️ "+f.getName() : f.getName(),17);
+        TextView icon=tv(f.isDirectory()?"📁":"📄",34); icon.setTextColor(FG);
+        TextView name=tv(specialName(f) ? "☺️ "+f.getName() : f.getName(),19); name.setTextColor(FG);
         row.addView(icon,new LinearLayout.LayoutParams(58,78));
         row.addView(name,new LinearLayout.LayoutParams(0,78,1));
         TextView size=tv(f.isDirectory()?"":human(f.length()),12);
@@ -142,7 +150,7 @@ public class MainActivity extends Activity {
     }
 
     boolean specialName(File f) {
-        return f.isDirectory() && (f.getName().equals("Şirin") || f.getName().equals("Sirin"));
+        return f.getName().equals("Şirin") || f.getName().equals("Sirin");
     }
 
     String human(long n){
@@ -190,9 +198,7 @@ public class MainActivity extends Activity {
         StringBuilder s=new StringBuilder(); String line; while((line=r.readLine())!=null)s.append(line).append('\n'); r.close(); return s.toString();
     }
     void write(File f,String s)throws Exception{
-        File tmp=new File(f.getParentFile(),f.getName()+".musab_tmp");
-        FileOutputStream o=new FileOutputStream(tmp); o.write(s.getBytes("UTF-8")); o.flush();o.close();
-        if(!tmp.renameTo(f)){ FileOutputStream q=new FileOutputStream(f);q.write(s.getBytes("UTF-8"));q.close();tmp.delete(); }
+        FileOutputStream o=new FileOutputStream(f); o.write(s.getBytes("UTF-8")); o.flush(); o.close();
     }
 
     void newDialog(){
@@ -281,7 +287,7 @@ public class MainActivity extends Activity {
     void appDetails(ApplicationInfo ai,PackageManager pm){
         String label=String.valueOf(ai.loadLabel(pm));
         PackageInfo pi;try{pi=pm.getPackageInfo(ai.packageName,0);}catch(Exception e){return;}
-        String msg=label+"\n"+ai.packageName+"\nSürüm: "+pi.versionName+" ("+pi.getLongVersionCode()+")\nAPK: "+ai.sourceDir;
+        String msg=label+"\n"+ai.packageName+"\nSürüm: "+pi.versionName+" ("+(Build.VERSION.SDK_INT>=28?pi.getLongVersionCode():pi.versionCode)+")\nAPK: "+ai.sourceDir;
         new AlertDialog.Builder(this).setTitle("Uygulama").setMessage(msg)
             .setPositiveButton("APK Çıkar",(d,w)->extractApk(ai))
             .setNeutralButton("APK içeriği",(d,w)->apkContents(new File(ai.sourceDir)))
@@ -329,7 +335,7 @@ public class MainActivity extends Activity {
     void xmlEditor(){codeEditor("AndroidManifest / XML");}
     void terminal(){toast("Terminal: gerçek gömülü Termux servisi yalnızca desteklenen Termux API/servisi kuruluysa bağlanabilir; sahte terminal gösterilmiyor.");}
 
-    void viewDialog(){new AlertDialog.Builder(this).setTitle("Görünüm").setItems(new String[]{"Liste","Yenile"},(d,w)->refresh()).show();}
+    void viewDialog(){new AlertDialog.Builder(this).setTitle("Görünüm").setItems(new String[]{"Liste","Büyük simgeler","Sırala: ad","Sırala: boyut","Yenile"},(d,w)->{if(w==0){gridView=false;refresh();}else if(w==1){gridView=true;refresh();}else if(w==2){sortBySize=false;refresh();}else if(w==3){sortBySize=true;refresh();}else refresh();}).show();}
 
     void makeSalakPng(File f){
         try{
