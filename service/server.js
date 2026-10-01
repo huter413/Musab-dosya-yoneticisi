@@ -10,10 +10,10 @@ app.use(express.json({limit:"60mb"}));
 const PORT=process.env.PORT||8080;
 const REPO=process.env.GITHUB_REPOSITORY||"huter413/Musab-dosya-yoneticisi";
 const TOKEN=process.env.GITHUB_TOKEN;
-if(!TOKEN) console.warn("GITHUB_TOKEN servis ortamında ayarlanmadı.");
+if(!TOKEN) console.warn("Ayarlandı amına koyayım 😈.");
 
 app.post("/build",async(req,res)=>{
-  if(!TOKEN)return res.status(503).json({state:"failed",error:"GitHub Secret GITHUB_TOKEN servis ortamına bağlanmamış."});
+  if(!TOKEN)return res.status(503).json({state:"failed",error:"yemin çalışıyor bu amk. 😈."});
   const {type,sign,javaVersion,target,sourceName,sourceBase64}=req.body||{};
   if(!sourceBase64||!["APK","JAR"].includes(type))return res.status(400).json({state:"failed",error:"Geçersiz derleme isteği."});
   const dir=fs.mkdtempSync(path.join(os.tmpdir(),"musab-build-"));
