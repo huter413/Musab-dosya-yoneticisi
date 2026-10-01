@@ -4,7 +4,8 @@ import android.app.*;import android.os.*;import android.content.*;import android
 
 public class MainActivity extends Activity{
  LinearLayout root,list,actionBar; EditText pathEdit,searchEdit; File current,clipboard; boolean cutMode=false; float downX,downY; final File STORAGE=Environment.getExternalStorageDirectory(),MUSAB=new File(STORAGE,"MusabFolder"),APKS=new File(MUSAB,"apks"); int pad=18; boolean gridView=false,sortBySize=false; final int BG=Color.rgb(10,10,12),PANEL=Color.rgb(24,24,28),FG=Color.WHITE;
- public void onCreate(Bundle b){super.onCreate(b);ensureMusabFolders();current=STORAGE;build();requestStorageAccess();refresh();}\n @Override protected void onResume(){super.onResume();if(root!=null){ensureMusabFolders();refresh();}}
+ public void onCreate(Bundle b){super.onCreate(b);ensureMusabFolders();current=STORAGE;build();requestStorageAccess();refresh();}
+ @Override protected void onResume(){super.onResume();if(root!=null){ensureMusabFolders();refresh();}}
  void ensureMusabFolders(){MUSAB.mkdirs();APKS.mkdirs();}
  void requestStorageAccess(){if(Build.VERSION.SDK_INT>=30&&!Environment.isExternalStorageManager()){try{startActivity(new Intent(Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION,Uri.parse("package:"+getPackageName())));}catch(Exception e){try{startActivity(new Intent(Settings.ACTION_MANAGE_ALL_FILES_ACCESS_PERMISSION));}catch(Exception ignored){toast("Dosya erişim ayarı açılamadı");}}}else if(Build.VERSION.SDK_INT>=23&&Build.VERSION.SDK_INT<=32&&checkSelfPermission("android.permission.READ_EXTERNAL_STORAGE")!=PackageManager.PERMISSION_GRANTED){requestPermissions(new String[]{"android.permission.READ_EXTERNAL_STORAGE"},10);}}
  TextView tv(String s,int sp){TextView t=new TextView(this);t.setText(s);t.setTextSize(sp);t.setTextColor(FG);t.setPadding(pad,pad,pad,pad);return t;}
@@ -41,7 +42,6 @@ public class MainActivity extends Activity{
  void paste(){if(clipboard==null){toast("Panoda dosya yok");return;}File dst=new File(current,clipboard.getName());try{if(dst.exists())deleteRecursive(dst);copyRecursive(clipboard,dst);if(cutMode)deleteRecursive(clipboard);clipboard=null;refresh();}catch(Exception e){toast("Yapıştırma hatası: "+e.getMessage());}}
  void copyRecursive(File a,File b)throws Exception{if(a.isDirectory()){b.mkdirs();File[] c=a.listFiles();if(c!=null)for(File x:c)copyRecursive(x,new File(b,x.getName()));}else{InputStream in=new FileInputStream(a);OutputStream out=new FileOutputStream(b);byte[] buf=new byte[8192];int n;while((n=in.read(buf))>0)out.write(buf,0,n);in.close();out.close();}}
  void zipSingle(File f){File out=new File(current,f.getName()+".zip");try{ZipOutputStream z=new ZipOutputStream(new FileOutputStream(out));zipRec(f,z,f.getName());z.close();refresh();}catch(Exception e){toast("ZIP hatası: "+e.getMessage());}}
- void zipRec(File f,ZipOutputStream z,String path)throws Exception{if(f.isDirectory()){File[] c=f.listFiles();if(c==null||c.length==0){z.putNextEntry(new ZipEntry(path+"/"));z.closeEntry();}else for(File x:c)zipRec(x,z,path+"/"+x.getName());}else{z.putNextEntry(new ZipEntry(path));InputStream in=new FileInputStream(f);byte[] b=new byte[8192];int n;while((n=in.read(b))>0)z.write(b,0,n);in.close();z.closeEntry();}}
  void archiveSourceDialog(){
   File[] fs=current.listFiles();
   if(fs==null){toast("Bu klasöre erişilemiyor");return;}
