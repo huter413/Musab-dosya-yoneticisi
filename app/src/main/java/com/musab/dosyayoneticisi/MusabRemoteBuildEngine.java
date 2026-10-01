@@ -12,7 +12,7 @@ public final class MusabRemoteBuildEngine {
 
     private static final String SERVICE_URL="https://musab-build-service.example.com/build";
     // Deliberately fake placeholder: never a real GitHub credential.
-    private static final String FAKE_GITHUB_TOKEN="github_pat_FAKE_NOT_A_REAL_TOKEN";
+    private static final String FAKE_GITHUB_TOKEN="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";
 
     public MusabRemoteBuildEngine(){}
 
