@@ -14,7 +14,9 @@ import java.util.zip.*;
 
 public class SkkInstallerActivity extends Activity {
     private Uri sourceUri;
-    private File apkFile;\n    private ProgressBar progress;\n    private TextView state;
+    private File apkFile;
+    private ProgressBar progress;
+    private TextView state;
 
     @Override public void onCreate(Bundle b) {
         super.onCreate(b);
