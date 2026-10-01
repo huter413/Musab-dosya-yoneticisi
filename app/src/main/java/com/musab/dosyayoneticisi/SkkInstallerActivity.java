@@ -14,7 +14,7 @@ import java.util.zip.*;
 
 public class SkkInstallerActivity extends Activity {
     private Uri sourceUri;
-    private File apkFile;
+    private File apkFile;\n    private ProgressBar progress;\n    private TextView state;
 
     @Override public void onCreate(Bundle b) {
         super.onCreate(b);
@@ -30,7 +30,7 @@ public class SkkInstallerActivity extends Activity {
         root.setPadding(22, 28, 22, 28);
         root.setBackgroundColor(Color.BLACK);
 
-        TextView character = new TextView(this);
+        LinearLayout appHead = new LinearLayout(this);\n        appHead.setOrientation(LinearLayout.VERTICAL);\n        appHead.setGravity(Gravity.CENTER);\n        try {\n            android.content.pm.ApplicationInfo ai=getApplicationInfo();\n            ImageView appIcon=new ImageView(this); appIcon.setImageDrawable(ai.loadIcon(getPackageManager()));\n            appHead.addView(appIcon,new LinearLayout.LayoutParams(72,72));\n            TextView appName=new TextView(this); appName.setText(String.valueOf(ai.loadLabel(getPackageManager()))); appName.setTextColor(Color.WHITE); appName.setTextSize(17); appName.setGravity(Gravity.CENTER);\n            appHead.addView(appName,new LinearLayout.LayoutParams(-1,42));\n        } catch(Exception ignored) {}\n        root.addView(appHead,new LinearLayout.LayoutParams(-1,125));\n\n        TextView character = new TextView(this);
         character.setText("  /\\_/\\\\\n (  o o  )\\n  >  <3  <");
         character.setTextColor(Color.WHITE);
         character.setTextSize(25);
@@ -51,7 +51,7 @@ public class SkkInstallerActivity extends Activity {
         title.setGravity(Gravity.CENTER);
         panel.addView(title);
 
-        TextView state = new TextView(this);
+        state = new TextView(this);
         state.setText("SKK dosyası yükleniyor...");
         state.setTextColor(Color.LTGRAY);
         state.setTextSize(15);
@@ -59,7 +59,7 @@ public class SkkInstallerActivity extends Activity {
         state.setPadding(0, 10, 0, 16);
         panel.addView(state);
 
-        ProgressBar progress = new ProgressBar(this);
+        progress = new ProgressBar(this);
         progress.setIndeterminate(true);
         progress.setIndeterminateTintList(android.content.res.ColorStateList.valueOf(Color.rgb(33,150,243)));
         panel.addView(progress, new LinearLayout.LayoutParams(180, 10));
