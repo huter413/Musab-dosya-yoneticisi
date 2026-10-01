@@ -21,13 +21,21 @@ jobs:
           wget -q https://services.gradle.org/distributions/gradle-8.10.2-bin.zip
           unzip -q gradle-8.10.2-bin.zip
           echo "$PWD/gradle-8.10.2/bin" >> "$GITHUB_PATH"
-      - name: Build debug APK
-        run: gradle --no-daemon assembleDebug
-      - name: Verify APK exists
+      - name: Build both APKs
+        run: gradle --no-daemon :app:assembleManagerDebug :app:assembleSkkLoaderDebug
+      - name: Verify both APKs exist
         run: |
-          test -s app/build/outputs/apk/debug/app-debug.apk
-          file app/build/outputs/apk/debug/app-debug.apk
-      - uses: actions/upload-artifact@v4
+          test -s app/build/outputs/apk/manager/debug/app-manager-debug.apk
+          test -s app/build/outputs/apk/skkLoader/debug/app-skkLoader-debug.apk
+          file app/build/outputs/apk/manager/debug/app-manager-debug.apk
+          file app/build/outputs/apk/skkLoader/debug/app-skkLoader-debug.apk
+      - name: Upload MusabDosyaYoneticisi APK
+        uses: actions/upload-artifact@v4
         with:
           name: MusabDosyaYoneticisi-debug
-          path: app/build/outputs/apk/debug/app-debug.apk
+          path: app/build/outputs/apk/manager/debug/app-manager-debug.apk
+      - name: Upload SKK Yükleyicisi APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: SKKYukleyicisi-debug
+          path: app/build/outputs/apk/skkLoader/debug/app-skkLoader-debug.apk
