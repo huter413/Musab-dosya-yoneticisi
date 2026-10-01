@@ -127,7 +127,7 @@ public class MusabBuildActivity extends Activity {
             androidProject=a;jarProject=j;
             final String msg=error;
             runOnUiThread(()->{
-                status.setText(msg==null?(a?"Android ZIP projesi hazır.":"JAR projesi hazır."):"Derleme öncesi hata: "+msg);
+                status.setText(msg==null?(androidOk?"Android ZIP projesi hazır.":"JAR projesi hazır."):"Derleme öncesi hata: "+msg);
                 updateStart();
             });
         }).start();
