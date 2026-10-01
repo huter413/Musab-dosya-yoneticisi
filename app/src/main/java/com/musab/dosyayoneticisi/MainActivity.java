@@ -27,7 +27,7 @@ public class MainActivity extends Activity{
  boolean isVideo(String x){return x.endsWith(".mp4")||x.endsWith(".mkv")||x.endsWith(".webm")||x.endsWith(".3gp")||x.endsWith(".avi")||x.endsWith(".mov")||x.endsWith(".m4v");}
  boolean isAudio(String x){return x.endsWith(".mp3")||x.endsWith(".wav")||x.endsWith(".ogg")||x.endsWith(".m4a")||x.endsWith(".aac")||x.endsWith(".flac")||x.endsWith(".opus");}
  String getMime(String x){if(isImage(x))return "image/*";if(isVideo(x))return "video/*";if(isAudio(x))return "audio/*";if(x.endsWith(".apk"))return "application/vnd.android.package-archive";if(isText(x))return "text/plain";return "*/*";}
- void newDialog(){new AlertDialog.Builder(this).setTitle("Yeni").setItems(new String[]{"Klasör","Dosya","Arşiv oluştur"},(d,w)->{if(w==0)newFolder();else if(w==1)newFile();else archiveDialog(null);}).show();}
+ void newDialog(){new AlertDialog.Builder(this).setTitle("Yeni").setItems(new String[]{"Klasör","Dosya","Arşiv oluştur"},(d,w)->{if(w==0)newFolder();else if(w==1)newFile();else archiveSourceDialog();}).show();}
  void newFolder(){prompt("Yeni klasör adı","",s->{File f=new File(current,s);if(!f.mkdir())toast("Oluşturulamadı");refresh();});}
  void newFile(){prompt("Yeni dosya adı","",s->{try{new File(current,s).createNewFile();refresh();}catch(Exception e){toast(e.getMessage());}});}
  void prompt(String title,String value,Callback cb){EditText e=new EditText(this);e.setText(value);new AlertDialog.Builder(this).setTitle(title).setView(e).setPositiveButton("Tamam",(d,w)->{String s=e.getText().toString().trim();if(!s.isEmpty())cb.run(s);}).setNegativeButton("İptal",null).show();}
@@ -40,7 +40,15 @@ public class MainActivity extends Activity{
  void share(File f){try{Uri u=FileProvider.getUriForFile(this,getPackageName()+".fileprovider",f);Intent i=new Intent(Intent.ACTION_SEND);i.setType(getMime(f.getName().toLowerCase(Locale.ROOT)));i.putExtra(Intent.EXTRA_STREAM,u);i.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);startActivity(Intent.createChooser(i,"Paylaş"));}catch(Exception e){toast(e.getMessage());}}
  void paste(){if(clipboard==null){toast("Panoda dosya yok");return;}File dst=new File(current,clipboard.getName());try{if(dst.exists())deleteRecursive(dst);copyRecursive(clipboard,dst);if(cutMode)deleteRecursive(clipboard);clipboard=null;refresh();}catch(Exception e){toast("Yapıştırma hatası: "+e.getMessage());}}
  void copyRecursive(File a,File b)throws Exception{if(a.isDirectory()){b.mkdirs();File[] c=a.listFiles();if(c!=null)for(File x:c)copyRecursive(x,new File(b,x.getName()));}else{InputStream in=new FileInputStream(a);OutputStream out=new FileOutputStream(b);byte[] buf=new byte[8192];int n;while((n=in.read(buf))>0)out.write(buf,0,n);in.close();out.close();}}
- void archiveDialog(File source){
+ void archiveSourceDialog(){
+ File[] fs=current.listFiles();
+ if(fs==null){toast("Bu klasöre erişilemiyor");return;}
+ ArrayList<File> items=new ArrayList<>();for(File f:fs)items.add(f);
+ String[] names=new String[items.size()];for(int i=0;i<items.size();i++)names[i]=items.get(i).getName();
+ if(names.length==0){toast("Bu klasör boş");return;}
+ new AlertDialog.Builder(this).setTitle("Arşivlenecek öğeyi seç").setItems(names,(d,w)->archiveDialog(items.get(w))).setNegativeButton("İptal",null).show();
+}
+void archiveDialog(File source){
  LinearLayout box=new LinearLayout(this);box.setOrientation(LinearLayout.VERTICAL);box.setPadding(20,4,20,4);
  TextView typeLabel=tv("Arşiv türü",14);box.addView(typeLabel);
  Spinner type=new Spinner(this);String[] types={"ZIP","ZIP (sıkıştırmasız)"};type.setAdapter(new ArrayAdapter<String>(this,android.R.layout.simple_spinner_dropdown_item,types));box.addView(type);
