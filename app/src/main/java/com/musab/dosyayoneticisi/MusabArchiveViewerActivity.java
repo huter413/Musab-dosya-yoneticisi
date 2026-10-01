@@ -64,7 +64,9 @@ public class MusabArchiveViewerActivity extends Activity {
         new Thread(() -> {
             try {
                 zip = new ZipFile(path);
-                ArrayList<ZipEntry> entries = Collections.list(zip.entries());
+                ArrayList<ZipEntry> entries = new ArrayList<>();
+                Enumeration<? extends ZipEntry> en = zip.entries();
+                while (en.hasMoreElements()) entries.add(en.nextElement());
                 entries.sort((a,b) -> {
                     if (a.isDirectory() != b.isDirectory()) return a.isDirectory() ? -1 : 1;
                     return a.getName().compareToIgnoreCase(b.getName());
