@@ -266,50 +266,56 @@ public class MainActivity extends Activity {
 
     void apps(){
         final PackageManager pm=getPackageManager();
-        LinearLayout l=new LinearLayout(this);l.setOrientation(LinearLayout.VERTICAL);
-        ScrollView s=new ScrollView(this);s.addView(l);
-        Button user=btn("Kullanıcı Uygulamaları");Button sys=btn("Sistem Uygulamaları");
-        l.addView(user);l.addView(sys);
-        user.setOnClickListener(v->showApps(l,false,pm));
-        sys.setOnClickListener(v->showApps(l,true,pm));
+        LinearLayout l=new LinearLayout(this); l.setOrientation(LinearLayout.VERTICAL);
+        TextView count=tv("Uygulamalar yükleniyor...",16); l.addView(count);
+        ScrollView s=new ScrollView(this); s.addView(l);
         new AlertDialog.Builder(this).setTitle("APK Çıkar").setView(s).setPositiveButton("Kapat",null).show();
+        new Thread(()->{
+            List<ApplicationInfo> all=pm.getInstalledApplications(PackageManager.GET_META_DATA);
+            all.sort((a,b)->String.valueOf(a.loadLabel(pm)).compareToIgnoreCase(String.valueOf(b.loadLabel(pm))));
+            runOnUiThread(()->{
+                l.removeAllViews();
+                Button user=btn("Kullanıcı Uygulamaları ("+all.stream().filter(a->(a.flags&ApplicationInfo.FLAG_SYSTEM)==0).count()+")");
+                Button sys=btn("Sistem Uygulamaları ("+all.stream().filter(a->(a.flags&ApplicationInfo.FLAG_SYSTEM)!=0).count()+")");
+                l.addView(user); l.addView(sys);
+                LinearLayout results=new LinearLayout(this); results.setOrientation(LinearLayout.VERTICAL); l.addView(results);
+                count.setText("Toplam görünür uygulama: "+all.size());
+                user.setOnClickListener(v->showAppsList(results,all,false,pm));
+                sys.setOnClickListener(v->showAppsList(results,all,true,pm));
+                showAppsList(results,all,false,pm);
+            });
+        }).start();
     }
-    void showApps(LinearLayout l,boolean system,PackageManager pm){
+    void showAppsList(LinearLayout l,List<ApplicationInfo> all,boolean system,PackageManager pm){
         l.removeAllViews();
-        for(ApplicationInfo ai:pm.getInstalledApplications(PackageManager.GET_META_DATA)){
-            boolean isSystem=(ai.flags & ApplicationInfo.FLAG_SYSTEM)!=0;
-            if(isSystem!=system)continue;
-            Button b=btn(ai.loadLabel(pm)+"\n"+ai.packageName);
+        TextView h=tv(system?"Tüm sistem uygulamaları":"Tüm kullanıcı uygulamaları",18); l.addView(h);
+        int shown=0;
+        for(ApplicationInfo ai:all){
+            boolean isSystem=(ai.flags&ApplicationInfo.FLAG_SYSTEM)!=0;
+            if(isSystem!=system) continue;
+            Button b=btn(String.valueOf(ai.loadLabel(pm))+"\n"+ai.packageName);
             b.setOnClickListener(v->appDetails(ai,pm));
-            l.addView(b);
+            l.addView(b); shown++;
         }
+        if(shown==0) l.addView(tv("Bu kategoride uygulama bulunamadı.",16));
     }
     void appDetails(ApplicationInfo ai,PackageManager pm){
-        String label=String.valueOf(ai.loadLabel(pm));
-        PackageInfo pi;try{pi=pm.getPackageInfo(ai.packageName,0);}catch(Exception e){return;}
-        String msg=label+"\n"+ai.packageName+"\nSürüm: "+pi.versionName+" ("+(Build.VERSION.SDK_INT>=28?pi.getLongVersionCode():pi.versionCode)+")\nAPK: "+ai.sourceDir;
+        String label=String.valueOf(ai.loadLabel(pm)); PackageInfo pi;
+        try{pi=pm.getPackageInfo(ai.packageName,0);}catch(Exception e){toast("Uygulama bilgisi okunamadı");return;}
+        long vc=Build.VERSION.SDK_INT>=28?pi.getLongVersionCode():pi.versionCode;
+        File apk=new File(ai.sourceDir);
+        String msg=label+"\n"+ai.packageName+"\nSürüm: "+pi.versionName+" ("+vc+")\nAPK: "+ai.sourceDir+"\nBoyut: "+human(apk.length());
         new AlertDialog.Builder(this).setTitle("Uygulama").setMessage(msg)
             .setPositiveButton("APK Çıkar",(d,w)->extractApk(ai))
-            .setNeutralButton("APK içeriği",(d,w)->apkContents(new File(ai.sourceDir)))
+            .setNeutralButton("APK içeriği",(d,w)->apkContents(apk))
             .setNegativeButton("Kapat",null).show();
     }
     void extractApk(ApplicationInfo ai){
-        ensureMusabFolders();
-        File src=new File(ai.sourceDir);
-        File dst=new File(APKS,ai.packageName+"-"+System.currentTimeMillis()+".apk");
+        ensureMusabFolders(); File src=new File(ai.sourceDir);
+        String safe=ai.packageName.replaceAll("[^A-Za-z0-9._-]","_");
+        File dst=new File(APKS,safe+"-"+System.currentTimeMillis()+".apk");
         try{copyRecursive(src,dst);toast("APK çıkarıldı: "+dst.getAbsolutePath());}
         catch(Exception e){toast("APK çıkarma hatası: "+e.getMessage());}
-    }
-
-    void apkContents(File apk){
-        LinearLayout l=new LinearLayout(this);l.setOrientation(LinearLayout.VERTICAL);
-        ScrollView s=new ScrollView(this);s.addView(l);
-        try{
-            ZipFile z=new ZipFile(apk);Enumeration<? extends ZipEntry> en=z.entries();
-            while(en.hasMoreElements()){ZipEntry e=en.nextElement();l.addView(tv(e.getName(),14));}
-            z.close();
-        }catch(Exception e){l.addView(tv("APK okunamadı: "+e.getMessage(),14));}
-        new AlertDialog.Builder(this).setTitle("APK içeriği").setView(s).setPositiveButton("Kapat",null).show();
     }
 
     void toolsDialog(){
