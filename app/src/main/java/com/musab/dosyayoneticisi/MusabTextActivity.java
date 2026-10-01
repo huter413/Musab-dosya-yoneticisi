@@ -1,0 +1,8 @@
+package com.musab.dosyayoneticisi;
+import android.app.*;import android.os.*;import android.graphics.Color;import android.view.*;import android.widget.*;import java.io.*;
+public class MusabTextActivity extends Activity{
+ EditText editor; File file;
+ public void onCreate(Bundle b){super.onCreate(b);file=new File(getIntent().getStringExtra("path"));LinearLayout root=new LinearLayout(this);root.setOrientation(LinearLayout.VERTICAL);root.setBackgroundColor(Color.rgb(12,12,14));TextView title=new TextView(this);title.setText("Musab Text  •  "+file.getName());title.setTextColor(Color.WHITE);title.setTextSize(21);title.setPadding(20,20,20,20);root.addView(title);editor=new EditText(this);editor.setTextColor(Color.WHITE);editor.setTextSize(14);editor.setGravity(Gravity.TOP|Gravity.START);editor.setSingleLine(false);editor.setBackgroundColor(Color.rgb(24,24,28));try{editor.setText(read());}catch(Exception e){editor.setText("Okuma hatası: "+e.getMessage());}root.addView(editor,new LinearLayout.LayoutParams(-1,0,1));Button save=new Button(this);save.setText("Kaydet");save.setOnClickListener(v->{try{write(editor.getText().toString());Toast.makeText(this,"Kaydedildi",Toast.LENGTH_SHORT).show();}catch(Exception e){Toast.makeText(this,"Kaydetme hatası: "+e.getMessage(),Toast.LENGTH_LONG).show();}});root.addView(save);setContentView(root);}
+ String read()throws Exception{BufferedReader r=new BufferedReader(new InputStreamReader(new FileInputStream(file),"UTF-8"));StringBuilder s=new StringBuilder();String l;while((l=r.readLine())!=null)s.append(l).append('\n');r.close();return s.toString();}
+ void write(String s)throws Exception{FileOutputStream o=new FileOutputStream(file,false);o.write(s.getBytes("UTF-8"));o.close();}
+}
