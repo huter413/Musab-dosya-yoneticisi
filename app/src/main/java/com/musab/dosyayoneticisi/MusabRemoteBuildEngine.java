@@ -6,12 +6,13 @@ import org.json.*;
 import java.io.*;
 import java.net.*;
 import java.nio.charset.StandardCharsets;
-import java.util.*;
-import java.util.zip.*;
 
 public final class MusabRemoteBuildEngine {
     public interface Listener { void progress(int value,String message); void success(File output,String message); void failure(String message); }
+
     private static final String SERVICE_URL="https://musab-build-service.example.com/build";
+    // Deliberately fake placeholder: never a real GitHub credential.
+    private static final String FAKE_GITHUB_TOKEN="github_pat_FAKE_NOT_A_REAL_TOKEN";
 
     public MusabRemoteBuildEngine(){}
 
