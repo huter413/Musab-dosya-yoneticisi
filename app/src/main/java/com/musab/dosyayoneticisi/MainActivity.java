@@ -33,7 +33,8 @@ public class MainActivity extends Activity{
  boolean isSkk(String x){return x.endsWith(".skk");}
  boolean skkInstalled(){try{return getPackageManager().getLaunchIntentForPackage(SKK_PACKAGE)!=null;}catch(Exception e){return false;}}
  void openWithSkk(File f){try{Uri u=FileProvider.getUriForFile(this,getPackageName()+".fileprovider",f);Intent i=new Intent(Intent.ACTION_VIEW);i.setPackage(SKK_PACKAGE);i.setDataAndType(u,"application/x-skk");i.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);startActivity(i);}catch(Exception e){toast("SKK Yükleyicisi açılamadı: "+e.getMessage());}}
- boolean isAudio(String x){return x.endsWith(".mp3")||x.endsWith(".wav")||x.endsWith(".ogg")||x.endsWith(".m4a")||x.endsWith(".aac")||x.endsWith(".flac")||x.endsWith(".opus");}\n boolean isArchive(String x){return x.endsWith(".zip")||x.endsWith(".jar")||x.endsWith(".apk")||x.endsWith(".aab")||x.endsWith(".xapk")||x.endsWith(".apks");}
+ boolean isAudio(String x){return x.endsWith(".mp3")||x.endsWith(".wav")||x.endsWith(".ogg")||x.endsWith(".m4a")||x.endsWith(".aac")||x.endsWith(".flac")||x.endsWith(".opus");}
+ boolean isArchive(String x){return x.endsWith(".zip")||x.endsWith(".jar")||x.endsWith(".apk")||x.endsWith(".aab")||x.endsWith(".xapk")||x.endsWith(".apks");}
  String getMime(String x){if(isImage(x))return "image/*";if(isVideo(x))return "video/*";if(isAudio(x))return "audio/*";if(isSkk(x))return "application/x-skk";if(x.endsWith(".apk"))return "application/vnd.android.package-archive";if(isText(x))return "text/plain";return "*/*";}
  void newDialog(){new AlertDialog.Builder(this).setTitle("Yeni").setItems(new String[]{"Klasör","Dosya","Arşiv oluştur"},(d,w)->{if(w==0)newFolder();else if(w==1)newFile();else archiveSourceDialog();}).show();}
  void newFolder(){prompt("Yeni klasör adı","",s->{File f=new File(current,s);if(!f.mkdir())toast("Oluşturulamadı");refresh();});}
