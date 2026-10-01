@@ -31,7 +31,7 @@ public class SkkInstallerActivity extends Activity {
         root.setBackgroundColor(Color.BLACK);
 
         TextView character = new TextView(this);
-        character.setText("  /\\_/\\\\n (  o o  )\\n  >  \\u2665  <");
+        character.setText("  /\\_/\\\\\n (  o o  )\\n  >  <3  <");
         character.setTextColor(Color.WHITE);
         character.setTextSize(25);
         character.setGravity(Gravity.CENTER);
