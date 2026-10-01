@@ -16,6 +16,7 @@ public class MusabBuildActivity extends Activity {
     ProgressBar progress;
     Button start;
     CheckBox sign;
+    EditText githubToken;
     Spinner javaVersion,target;
     boolean androidProject,jarProject;
 
@@ -42,6 +43,18 @@ public class MusabBuildActivity extends Activity {
         ScrollView scroll=new ScrollView(this);
         LinearLayout box=new LinearLayout(this);box.setOrientation(LinearLayout.VERTICAL);
         box.addView(tv("Kaynak: "+source.getName(),16));
+
+        box.addView(tv("Gerçek motor: GitHub Actions + Gradle + JDK + Android SDK",13));
+        githubToken=new EditText(this);
+        githubToken.setSingleLine(true);
+        githubToken.setHint("GitHub token");
+        githubToken.setInputType(android.text.InputType.TYPE_CLASS_TEXT|android.text.InputType.TYPE_TEXT_VARIATION_PASSWORD);
+        githubToken.setText(getSharedPreferences("musab_build",MODE_PRIVATE).getString("github_token",""));
+        box.addView(githubToken);
+        Button tokenInfo=btn("Tokenu kaydet / değiştir");
+        tokenInfo.setOnClickListener(v->{String t=githubToken.getText().toString().trim();if(t.isEmpty()){toast("Token boş.");return;}getSharedPreferences("musab_build",MODE_PRIVATE).edit().putString("github_token",t).apply();toast("GitHub token kaydedildi.");});
+        box.addView(tokenInfo);
+
 
         sign=new CheckBox(this);sign.setText("Derlerken imzala");sign.setTextColor(Color.WHITE);
         box.addView(sign);
@@ -156,18 +169,31 @@ public class MusabBuildActivity extends Activity {
     }
 
     void runBuild(String type,boolean valid){
-        status.setText(type+" derleniyor...");
+        if(!valid){fail(type+" projesi doğrulaması başarısız.");return;}
+        String token=githubToken==null?"":githubToken.getText().toString().trim();
+        if(token.isEmpty()){
+            new AlertDialog.Builder(this).setTitle("GitHub token gerekli")
+                .setMessage("Gerçek Gradle/JDK/Android SDK motoru GitHub Actions üzerinde çalışır. Token girip kaydedin.")
+                .setPositiveButton("Tamam",null).show();
+            return;
+        }
+        getSharedPreferences("musab_build",MODE_PRIVATE).edit().putString("github_token",token).apply();
+        status.setText(type+" gerçek derleme motoruna gönderiliyor...");
         start.setEnabled(false);
-        progress.setVisibility(View.VISIBLE);progress.setProgress(0);
-        new Thread(()->{
-            try{
-                for(int p=10;p<=90;p+=10){Thread.sleep(120);final int q=p;runOnUiThread(()->progress.setProgress(q));}
-                String why=type.equals("APK")?
-                    "Cihaz içinde Android SDK/Gradle derleme motoru bulunmadığı için gerçek APK derlemesi başlatılamadı. Proje doğrulandı ancak derleme motoru eksik.":
-                    "Cihaz içinde Java/Gradle derleme motoru bulunmadığı için kaynak JAR derlemesi başlatılamadı. Proje doğrulandı ancak derleme motoru eksik.";
-                runOnUiThread(()->fail(why));
-            }catch(Exception e){runOnUiThread(()->fail("Derleme başarısız: "+e.getMessage()));}
-        }).start();
+        progress.setVisibility(View.VISIBLE);progress.setProgress(1);
+        final String selectedJava=javaVersion==null?"Seç":String.valueOf(javaVersion.getSelectedItem());
+        final String selectedTarget=target==null?"Seç":String.valueOf(target.getSelectedItem());
+        MusabRemoteBuildEngine engine=new MusabRemoteBuildEngine(token);
+        engine.build(source,type,sign.isChecked(),selectedJava,selectedTarget,new MusabRemoteBuildEngine.Listener(){
+            public void progress(int value,String message){runOnUiThread(()->{progress.setProgress(Math.max(0,Math.min(100,value)));status.setText(message);});}
+            public void success(File output,String message){runOnUiThread(()->{
+                progress.setProgress(100);start.setEnabled(true);
+                status.setText(message+"\nÇıktı: "+output.getAbsolutePath());
+                new AlertDialog.Builder(MusabBuildActivity.this).setTitle("Derleme başarılı")
+                    .setMessage(message+"\n\n"+output.getAbsolutePath()).setPositiveButton("Tamam",null).show();
+            });}
+            public void failure(String message){runOnUiThread(()->fail(message));}
+        });
     }
 
     void binaryXml(){
