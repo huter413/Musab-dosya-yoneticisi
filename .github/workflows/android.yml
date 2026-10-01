@@ -1,41 +1,175 @@
-name: Android Build
+name: Musab Remote Project Build
 on:
   push:
-    branches: [ main ]
-  pull_request:
-    branches: [ main ]
+    branches:
+      - "musab-build-*"
+    paths:
+      - "build-input/**/source.zip"
+      - "build-input/**/source.jar"
+
 jobs:
-  build:
+  build-project:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-java@v5
+
+      - name: Read build request
+        id: cfg
+        shell: bash
+        run: |
+          SOURCE=$(find build-input -type f \( -name source.zip -o -name source.jar \) | head -n 1)
+          if [ -z "$SOURCE" ]; then
+            echo "BUILD_ERROR=build-input/source.zip veya source.jar bulunamadı" >> "$GITHUB_ENV"
+            exit 1
+          fi
+          DIR=$(dirname "$SOURCE")
+          CONFIG="$DIR/config.json"
+          if [ ! -f "$CONFIG" ]; then
+            echo "BUILD_ERROR=config.json bulunamadı" >> "$GITHUB_ENV"
+            exit 1
+          fi
+          echo "source=$SOURCE" >> "$GITHUB_OUTPUT"
+          echo "dir=$DIR" >> "$GITHUB_OUTPUT"
+          echo "type=$(jq -r '.type // "APK"' "$CONFIG")" >> "$GITHUB_OUTPUT"
+          echo "sign=$(jq -r '.sign // false' "$CONFIG")" >> "$GITHUB_OUTPUT"
+          echo "java_version=$(jq -r '.javaVersion // "Seç"' "$CONFIG")" >> "$GITHUB_OUTPUT"
+          echo "target=$(jq -r '.target // "Seç"' "$CONFIG")" >> "$GITHUB_OUTPUT"
+
+      - name: Select JDK
+        uses: actions/setup-java@v5
         with:
           distribution: temurin
-          java-version: '17'
-      - uses: android-actions/setup-android@v3
+          java-version: ${{ contains(steps.cfg.outputs.java_version, '1.21') && '21' || contains(steps.cfg.outputs.java_version, '1.20') && '21' || contains(steps.cfg.outputs.java_version, '1.19') && '17' || contains(steps.cfg.outputs.java_version, '1.18') && '17' || contains(steps.cfg.outputs.java_version, '1.17') && '17' || contains(steps.cfg.outputs.java_version, '1.16') && '11' || '8' }}
+
+      - name: Install Android SDK
+        if: steps.cfg.outputs.type == 'APK'
+        uses: android-actions/setup-android@v3
         with:
           packages: 'platform-tools platforms;android-35 build-tools;35.0.0'
+
       - name: Install Gradle
+        shell: bash
         run: |
           wget -q https://services.gradle.org/distributions/gradle-8.10.2-bin.zip
           unzip -q gradle-8.10.2-bin.zip
           echo "$PWD/gradle-8.10.2/bin" >> "$GITHUB_PATH"
-      - name: Build both APKs
-        run: gradle --no-daemon :app:assembleManagerDebug :app:assembleSkkLoaderDebug
-      - name: Verify both APKs exist
+
+      - name: Extract source
+        shell: bash
         run: |
-          test -s app/build/outputs/apk/manager/debug/app-manager-debug.apk
-          test -s app/build/outputs/apk/skkLoader/debug/app-skkLoader-debug.apk
-          file app/build/outputs/apk/manager/debug/app-manager-debug.apk
-          file app/build/outputs/apk/skkLoader/debug/app-skkLoader-debug.apk
-      - name: Upload MusabDosyaYoneticisi APK
+          rm -rf workspace dist
+          mkdir -p workspace dist
+          if [[ "${{ steps.cfg.outputs.source }}" == *.zip || "${{ steps.cfg.outputs.source }}" == *.jar ]]; then
+            unzip -q "${{ steps.cfg.outputs.source }}" -d workspace
+          fi
+          if [ "$(find workspace -maxdepth 1 -type d | wc -l)" -eq 2 ]; then
+            FIRST=$(find workspace -mindepth 1 -maxdepth 1 -type d | head -n1)
+            if [ -f "$FIRST/settings.gradle" ] || [ -f "$FIRST/settings.gradle.kts" ] || [ -f "$FIRST/pom.xml" ]; then
+              shopt -s dotglob
+              cp -a "$FIRST"/. workspace/
+              rm -rf "$FIRST"
+            fi
+          fi
+
+      - name: Build Android APK
+        if: steps.cfg.outputs.type == 'APK'
+        shell: bash
+        run: |
+          set -o pipefail
+          if [ -f workspace/gradlew ]; then
+            chmod +x workspace/gradlew
+            (cd workspace && ./gradlew --no-daemon assembleDebug)
+          elif [ -f workspace/settings.gradle ] || [ -f workspace/settings.gradle.kts ] || [ -f workspace/build.gradle ] || [ -f workspace/build.gradle.kts ]; then
+            (cd workspace && gradle --no-daemon assembleDebug)
+          else
+            echo "Android ZIP projesinde Gradle build dosyası bulunamadı. settings.gradle(.kts), build.gradle(.kts) veya gradlew ekleyin."
+            exit 20
+          fi
+          APK=$(find workspace -type f -path '*/build/outputs/apk/*/*.apk' | head -n 1)
+          if [ -z "$APK" ]; then
+            echo "Gradle çalıştı fakat APK çıktısı bulunamadı."
+            exit 21
+          fi
+          cp "$APK" dist/output.apk
+
+      - name: Sign APK with generated key
+        if: steps.cfg.outputs.type == 'APK' && steps.cfg.outputs.sign == 'true'
+        shell: bash
+        run: |
+          keytool -genkeypair -v -keystore dist/musab-build.jks -storepass changeit -keypass changeit -alias musab -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=Musab Build"
+          mv dist/output.apk dist/unsigned.apk
+          ZIPALIGN="$ANDROID_HOME/build-tools/35.0.0/zipalign"
+          APKSIGNER="$ANDROID_HOME/build-tools/35.0.0/apksigner"
+          "$ZIPALIGN" -f 4 dist/unsigned.apk dist/aligned.apk
+          "$APKSIGNER" sign --ks dist/musab-build.jks --ks-pass pass:changeit --key-pass pass:changeit --v1-signing-enabled true --v2-signing-enabled true --v3-signing-enabled true --out dist/output.apk dist/aligned.apk
+          rm -f dist/unsigned.apk dist/aligned.apk
+
+      - name: Build JAR
+        if: steps.cfg.outputs.type == 'JAR'
+        shell: bash
+        run: |
+          set -o pipefail
+          if [ -f workspace/gradlew ]; then
+            chmod +x workspace/gradlew
+            (cd workspace && ./gradlew --no-daemon jar)
+            JAR=$(find workspace -type f -path '*/build/libs/*.jar' | head -n 1)
+          elif [ -f workspace/build.gradle ] || [ -f workspace/build.gradle.kts ] || [ -f workspace/settings.gradle ] || [ -f workspace/settings.gradle.kts ]; then
+            (cd workspace && gradle --no-daemon jar)
+            JAR=$(find workspace -type f -path '*/build/libs/*.jar' | head -n 1)
+          else
+            mkdir -p workspace/classes
+            mapfile -t SOURCES < <(find workspace -type f -name '*.java')
+            if [ "${#SOURCES[@]}" -eq 0 ]; then
+              echo "JAR projesinde Gradle/Javac kaynak projesi bulunamadı."
+              exit 30
+            fi
+            javac -d workspace/classes "${SOURCES[@]}"
+            jar cf dist/output.jar -C workspace/classes .
+            JAR=dist/output.jar
+          fi
+          if [ -z "$JAR" ] || [ ! -f "$JAR" ]; then
+            echo "JAR derleme tamamlandı ancak JAR çıktısı bulunamadı."
+            exit 31
+          fi
+          if [ "$JAR" != "dist/output.jar" ]; then cp "$JAR" dist/output.jar; fi
+
+      - name: Sign JAR with generated key
+        if: steps.cfg.outputs.type == 'JAR' && steps.cfg.outputs.sign == 'true'
+        shell: bash
+        run: |
+          keytool -genkeypair -v -keystore dist/musab-jar.jks -storepass changeit -keypass changeit -alias musab -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=Musab Build"
+          jarsigner -keystore dist/musab-jar.jks -storepass changeit -keypass changeit dist/output.jar musab
+          jarsigner -verify -verbose -certs dist/output.jar
+
+      - name: Write build metadata
+        if: always()
+        shell: bash
+        run: |
+          {
+            echo "Tür: ${{ steps.cfg.outputs.type }}"
+            echo "Minecraft Java: ${{ steps.cfg.outputs.java_version }}"
+            echo "Hedef: ${{ steps.cfg.outputs.target }}"
+            echo "İmzalama: ${{ steps.cfg.outputs.sign }}"
+            echo "Sonuç: ${{ job.status }}"
+          } > dist/build-info.txt
+
+      - name: Upload build result
+        if: success()
         uses: actions/upload-artifact@v4
         with:
-          name: MusabDosyaYoneticisi-debug
-          path: app/build/outputs/apk/manager/debug/app-manager-debug.apk
-      - name: Upload SKK Yükleyicisi APK
+          name: musab-build-output
+          path: dist/
+          if-no-files-found: error
+          include-hidden-files: true
+
+      - name: Upload failure diagnostics
+        if: failure()
         uses: actions/upload-artifact@v4
         with:
-          name: SKKYukleyicisi-debug
-          path: app/build/outputs/apk/skkLoader/debug/app-skkLoader-debug.apk
+          name: musab-build-failure
+          path: |
+            dist/
+            workspace/**/*.log
+          if-no-files-found: warn
