@@ -4,7 +4,8 @@
     <application
         android:label="@string/skk_app_name"
         android:icon="@drawable/ic_skk"
-        android:theme="@style/AppTheme">
+        android:theme="@style/AppTheme"
+        tools:replace="android:label,android:icon">
         <activity android:name=".SkkInstallerActivity" android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN"/>
