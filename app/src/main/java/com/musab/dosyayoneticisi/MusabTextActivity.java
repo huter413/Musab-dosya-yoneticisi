@@ -4,6 +4,7 @@ import android.app.*;
 import android.os.*;
 import android.graphics.Color;
 import android.view.*;
+import android.view.inputmethod.InputMethodManager;
 import android.widget.*;
 import java.io.*;
 import java.util.*;
@@ -40,7 +41,8 @@ public class MusabTextActivity extends Activity {
         editor.setTextSize(14);
         editor.setGravity(Gravity.TOP|Gravity.START);
         editor.setSingleLine(false);
-        editor.setHorizontallyScrolling(true);
+        editor.setHorizontallyScrolling(false);
+        editor.setInputType(android.text.InputType.TYPE_CLASS_TEXT | android.text.InputType.TYPE_TEXT_FLAG_MULTI_LINE | android.text.InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS);
         editor.setBackgroundColor(Color.rgb(24,24,28));
         try {
             if (file==null) throw new IOException("Dosya yolu yok");
@@ -56,12 +58,14 @@ public class MusabTextActivity extends Activity {
         Button save=new Button(this);
         save.setText("Kaydet");
         save.setOnClickListener(v->saveNow());
-        actions.addView(save,new LinearLayout.LayoutParams(0,72,1));
+        actions.setPadding(8,4,8,8);
+        actions.setGravity(Gravity.CENTER_VERTICAL);
+        actions.addView(save,new LinearLayout.LayoutParams(0,64,1));
 
         Button exit=new Button(this);
         exit.setText("Çık");
         exit.setOnClickListener(v->confirmExit());
-        actions.addView(exit,new LinearLayout.LayoutParams(0,72,1));
+        actions.addView(exit,new LinearLayout.LayoutParams(0,64,1));
 
         root.addView(actions);
         setContentView(root);
