@@ -242,7 +242,7 @@ public class FastMainActivity extends MainActivity {
 
         addMenuItem(box, "Aç", R.drawable.ic_file, () -> openFile(f));
         if (skk) addMenuItem(box, "SKK ile aç", R.drawable.ic_skk, () -> openWithSkk(f));
-        if (archive) addMenuItem(box, "İle aç", R.drawable.ic_tool_archive, () -> openWithOptions(f));
+        addMenuItem(box, "İle aç", R.drawable.ic_tool_archive, () -> openWithOptions(f));
         addMenuItem(box, "Yeniden adlandır", R.drawable.ic_file, () -> rename(f));
         addMenuItem(box, "Kopyala", R.drawable.ic_file, () -> { clipboard = f; cutMode = false; toast("Kopyalandı"); });
         addMenuItem(box, "Kes", R.drawable.ic_file, () -> { clipboard = f; cutMode = true; toast("Kesildi"); });
