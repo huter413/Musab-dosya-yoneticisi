@@ -100,9 +100,31 @@ public class FastMainActivity extends MainActivity {
         else super.onBackPressed();
     }
 
+    void openWithOptions(File f) {
+        if (f == null) return;
+        ArrayList<String> labels = new ArrayList<>();
+        ArrayList<Runnable> actions = new ArrayList<>();
+        if (skkInstalled()) {
+            labels.add("SKK Yükleyicisi");
+            actions.add(() -> openWithSkk(f));
+        }
+        labels.add("APK derleme");
+        actions.add(() -> openBuild(f));
+        labels.add("JAR derleme");
+        actions.add(() -> openBuild(f));
+        labels.add("Derleme merkezi (sürüm / imza)");
+        actions.add(() -> openBuild(f));
+        new AlertDialog.Builder(this, AlertDialog.THEME_DEVICE_DEFAULT_DARK)
+                .setTitle("İle aç")
+                .setItems(labels.toArray(new String[0]), (d, which) -> actions.get(which).run())
+                .setNegativeButton("Kapat", null)
+                .show();
+    }
+
     @Override
     void navigate(String p) {
-        if (p == null || p.trim().isEmpty() || p.trim().equals("/")) {
+        String path = p == null ? "" : p.trim();
+        if (path.isEmpty() || path.equals("/") || path.equals("/storage") || path.equals("/storage/emulated")) {
             current = STORAGE;
             refresh();
             return;
@@ -220,7 +242,7 @@ public class FastMainActivity extends MainActivity {
 
         addMenuItem(box, "Aç", R.drawable.ic_file, () -> openFile(f));
         if (skk) addMenuItem(box, "SKK ile aç", R.drawable.ic_skk, () -> openWithSkk(f));
-        if (archive) addMenuItem(box, "Arşiv / derleme ile aç", R.drawable.ic_tool_archive, () -> openBuild(f));
+        if (archive) addMenuItem(box, "İle aç", R.drawable.ic_tool_archive, () -> openWithOptions(f));
         addMenuItem(box, "Yeniden adlandır", R.drawable.ic_file, () -> rename(f));
         addMenuItem(box, "Kopyala", R.drawable.ic_file, () -> { clipboard = f; cutMode = false; toast("Kopyalandı"); });
         addMenuItem(box, "Kes", R.drawable.ic_file, () -> { clipboard = f; cutMode = true; toast("Kesildi"); });
