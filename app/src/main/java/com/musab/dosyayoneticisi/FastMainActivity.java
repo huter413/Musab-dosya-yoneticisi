@@ -139,6 +139,8 @@ public class FastMainActivity extends MainActivity {
         actions.add(() -> materialBinBuild(f));
         labels.add("Özellikler");
         actions.add(() -> properties(f));
+        labels.add("Kontrol et");
+        actions.add(() -> properties(f));
         labels.add("ZIP oluştur");
         actions.add(() -> zipSingle(f));
 
@@ -345,6 +347,7 @@ public class FastMainActivity extends MainActivity {
         addMenuItem(box, "Aç", R.drawable.ic_file, () -> openFile(f));
         if (skk) addMenuItem(box, "SKK ile aç", R.drawable.ic_skk, () -> openWithSkk(f));
         addMenuItem(box, "İle aç", R.drawable.ic_tool_archive, () -> openWithOptions(f));
+        addMenuItem(box, "Kontrol et", R.drawable.ic_tool_xml, () -> properties(f));
         addMenuItem(box, "Yeniden adlandır", R.drawable.ic_file, () -> rename(f));
         addMenuItem(box, "Kopyala", R.drawable.ic_file, () -> { clipboard = f; cutMode = false; toast("Kopyalandı"); });
         addMenuItem(box, "Kes", R.drawable.ic_file, () -> { clipboard = f; cutMode = true; toast("Kesildi"); });
