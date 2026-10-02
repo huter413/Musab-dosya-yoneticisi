@@ -175,7 +175,9 @@ public class SkkInstallerActivity extends Activity {
         try {
             CharSequence label = pm.getApplicationLabel(ai);
             if (label != null && label.length() > 0) targetName = label.toString();
-            targetIcon = pm.getApplicationIcon(ai);
+            Drawable loadedIcon = ai.loadIcon(pm);
+            if (loadedIcon == null) loadedIcon = pm.getApplicationIcon(ai);
+            targetIcon = loadedIcon;
         } catch (Exception ignored) {}
         runOnUiThread(() -> {
             appNameView.setText(targetName);
