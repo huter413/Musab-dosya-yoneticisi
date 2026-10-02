@@ -102,35 +102,21 @@ public class FastMainActivity extends MainActivity {
 
     void openWithOptions(File f) {
         if (f == null) return;
-        String x = f.getName().toLowerCase(Locale.ROOT);
         ArrayList<String> labels = new ArrayList<>();
         ArrayList<Runnable> actions = new ArrayList<>();
 
-        if (isArchive(x)) {
-            labels.add("Musab Arşiv Görüntüleyici");
-            actions.add(() -> openArchiveViewer(f));
-        } else if (isXml(x)) {
-            labels.add("Musab XML Görüntüleyici");
-            actions.add(() -> openXmlViewer(f));
-            labels.add("Musab Text");
-            actions.add(() -> openTextViewer(f));
-        } else if (isText(x)) {
-            labels.add("Musab Text");
-            actions.add(() -> openTextViewer(f));
-            if (x.endsWith(".sxml")) {
-                labels.add("Musab XML Görüntüleyici");
-                actions.add(() -> openXmlViewer(f));
-            }
-        } else if (isImage(x)) {
-            labels.add("Musab Görsel Görüntüleyici");
-            actions.add(() -> openImageViewer(f));
-        } else if (isVideo(x)) {
-            labels.add("Musab Video Görüntüleyici");
-            actions.add(() -> openVideoViewer(f));
-        } else if (isAudio(x)) {
-            labels.add("Musab Ses Çalar");
-            actions.add(() -> openAudioPlayer(f));
-        }
+        labels.add("Musab Text");
+        actions.add(() -> openTextViewer(f));
+        labels.add("Musab Görsel Görüntüleyici");
+        actions.add(() -> openImageViewer(f));
+        labels.add("Musab Video Görüntüleyici");
+        actions.add(() -> openVideoViewer(f));
+        labels.add("Musab Ses Çalar");
+        actions.add(() -> openAudioPlayer(f));
+        labels.add("Musab XML Görüntüleyici");
+        actions.add(() -> openXmlViewer(f));
+        labels.add("Musab Arşiv Görüntüleyici");
+        actions.add(() -> openArchiveViewer(f));
 
         if (skkInstalled()) {
             labels.add("SKK Yükleyicisi");
@@ -139,12 +125,7 @@ public class FastMainActivity extends MainActivity {
 
         labels.add("Android uygulamasıyla aç");
         actions.add(() -> openExternalChooser(f));
-
-        labels.add("APK derleme");
-        actions.add(() -> openBuild(f));
-        labels.add("JAR derleme");
-        actions.add(() -> openBuild(f));
-        labels.add("Derleme merkezi (sürüm / imza)");
+        labels.add("APK / JAR / Derleme merkezi");
         actions.add(() -> openBuild(f));
 
         new AlertDialog.Builder(this, AlertDialog.THEME_DEVICE_DEFAULT_DARK)
