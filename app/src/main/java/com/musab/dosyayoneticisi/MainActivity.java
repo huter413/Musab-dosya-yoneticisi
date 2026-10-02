@@ -43,9 +43,11 @@ public class MainActivity extends Activity{
  boolean isArchive(String x){return x.endsWith(".zip")||x.endsWith(".jar")||x.endsWith(".apk")||x.endsWith(".aab")||x.endsWith(".xapk")||x.endsWith(".apks");}
  String getMime(String x){if(isImage(x))return "image/*";if(isVideo(x))return "video/*";if(isAudio(x))return "audio/*";if(isSkk(x))return "application/x-skk";if(x.endsWith(".apk"))return "application/vnd.android.package-archive";if(isText(x))return "text/plain";return "*/*";}
  void newDialog(){new AlertDialog.Builder(this).setTitle("Yeni").setItems(new String[]{"Klasör","Dosya","Arşiv oluştur"},(d,w)->{if(w==0)newFolder();else if(w==1)newFile();else archiveSourceDialog();}).show();}
- void newFolder(){prompt("Yeni klasör adı","",s->{File f=new File(current,s);if(!f.mkdir())toast("Oluşturulamadı");refresh();});}
- void newFile(){prompt("Yeni dosya adı","",s->{try{File f=new File(current,s);if(s.equals("Salak.png")){copyBundledSalakPng(f);}else if(!f.createNewFile())toast("Dosya zaten var veya oluşturulamadı");refresh();}catch(Exception e){toast("Dosya oluşturulamadı: "+e.getMessage());}});}
- void copyBundledSalakPng(File target)throws Exception{if(target.exists()&&!target.delete())throw new IOException("Mevcut Salak.png silinemedi.");try(InputStream in=getResources().openRawResource(R.drawable.salak);OutputStream out=new FileOutputStream(target)){byte[] buf=new byte[8192];int n;while((n=in.read(buf))!=-1)out.write(buf,0,n);}}
+ void newFolder(){prompt("Yeni klasör adı","",s->{File f=new File(current,s);if(f.exists()){showCreateConflict(f,true,s);return;}if(!f.mkdir())toast("Oluşturulamadı");refresh();});}
+ void newFile(){prompt("Yeni dosya adı","",s->{try{File f=new File(current,s);if(f.exists()){showCreateConflict(f,false,s);return;}if(s.equals("Salak.png"))copyBundledSalakPng(f);else if(!f.createNewFile())toast("Oluşturulamadı");refresh();}catch(Exception e){toast("Dosya oluşturulamadı: "+e.getMessage());}});}
+ void showCreateConflict(File existing,boolean directory,String requestedName){new AlertDialog.Builder(this).setTitle("Dosya zaten var").setMessage(existing.getName()+" zaten mevcut. Ne yapmak istiyorsun?").setPositiveButton("Kopya oluştur",(d,w)->{File copy=uniqueSibling(existing);try{if(directory)copy.mkdirs();else if(requestedName.equals("Salak.png"))copyBundledSalakPng(copy);else copy.createNewFile();refresh();}catch(Exception e){toast("Kopya oluşturulamadı: "+e.getMessage());}}).setNeutralButton("Değiştir",(d,w)->{try{if(directory){deleteRecursive(existing);existing.mkdir();}else if(requestedName.equals("Salak.png"))copyBundledSalakPng(existing);else{if(existing.isDirectory())deleteRecursive(existing);existing.delete();existing.createNewFile();}refresh();}catch(Exception e){toast("Değiştirilemedi: "+e.getMessage());}}).setNegativeButton("İptal",null).show();}
+ File uniqueSibling(File wanted){String name=wanted.getName();int dot=name.lastIndexOf(".");String base=dot>0?name.substring(0,dot):name;String ext=dot>0?name.substring(dot):"";int n=1;File candidate;do{candidate=new File(wanted.getParentFile(),base+" ("+n+")"+ext);n++;}while(candidate.exists());return candidate;}
+ void copyBundledSalakPng(File target)throws Exception{try(InputStream in=getResources().openRawResource(R.drawable.salak);OutputStream out=new FileOutputStream(target,false)){byte[] buf=new byte[8192];int n;while((n=in.read(buf))!=-1)out.write(buf,0,n);}}
 
  void prompt(String title,String value,Callback cb){EditText e=new EditText(this);e.setText(value);new AlertDialog.Builder(this).setTitle(title).setView(e).setPositiveButton("Tamam",(d,w)->{String s=e.getText().toString().trim();if(!s.isEmpty())cb.run(s);}).setNegativeButton("İptal",null).show();}
  interface Callback{void run(String s);}
@@ -56,7 +58,9 @@ public class MainActivity extends Activity{
  void deleteRecursive(File f){if(f.isDirectory()){File[] c=f.listFiles();if(c!=null)for(File x:c)deleteRecursive(x);}f.delete();}
  void properties(File f){new AlertDialog.Builder(this).setTitle("Özellikler").setMessage("Yol: "+f.getAbsolutePath()+"\nBoyut: "+human(f.length())+"\nSon değişiklik: "+new Date(f.lastModified())).setPositiveButton("Tamam",null).show();}
  void share(File f){try{Uri u=FileProvider.getUriForFile(this,getPackageName()+".fileprovider",f);Intent i=new Intent(Intent.ACTION_SEND);i.setType(getMime(f.getName().toLowerCase(Locale.ROOT)));i.putExtra(Intent.EXTRA_STREAM,u);i.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);startActivity(Intent.createChooser(i,"Paylaş"));}catch(Exception e){toast(e.getMessage());}}
- void paste(){if(clipboard==null){toast("Panoda dosya yok");return;}File dst=new File(current,clipboard.getName());try{if(dst.exists())deleteRecursive(dst);copyRecursive(clipboard,dst);if(cutMode)deleteRecursive(clipboard);clipboard=null;refresh();}catch(Exception e){toast("Yapıştırma hatası: "+e.getMessage());}}
+ void paste(){if(clipboard==null){toast("Panoda dosya yok");return;}File dst=new File(current,clipboard.getName());if(dst.exists()){showPasteConflict(dst);return;}performPaste(dst,false);}
+ void showPasteConflict(File existing){new AlertDialog.Builder(this).setTitle("Dosya zaten var").setMessage(existing.getName()+" zaten bu klasörde var.").setPositiveButton("Kopya oluştur",(d,w)->performPaste(uniqueSibling(existing),false)).setNeutralButton("Değiştir",(d,w)->performPaste(existing,true)).setNegativeButton("İptal",null).show();}
+ void performPaste(File dst,boolean replace){try{if(replace&&dst.exists())deleteRecursive(dst);copyRecursive(clipboard,dst);if(cutMode&&!dst.equals(clipboard))deleteRecursive(clipboard);clipboard=null;refresh();}catch(Exception e){toast("Yapıştırma hatası: "+e.getMessage());}}
  void copyRecursive(File a,File b)throws Exception{if(a.isDirectory()){b.mkdirs();File[] c=a.listFiles();if(c!=null)for(File x:c)copyRecursive(x,new File(b,x.getName()));}else{InputStream in=new FileInputStream(a);OutputStream out=new FileOutputStream(b);byte[] buf=new byte[8192];int n;while((n=in.read(buf))>0)out.write(buf,0,n);in.close();out.close();}}
  void zipSingle(File f){File out=new File(current,f.getName()+".zip");try{ZipOutputStream z=new ZipOutputStream(new FileOutputStream(out));zipRec(f,z,f.getName());z.close();refresh();}catch(Exception e){toast("ZIP hatası: "+e.getMessage());}}
  void archiveSourceDialog(){
@@ -107,8 +111,9 @@ public class MainActivity extends Activity{
   }
   if(out.exists()){
     new AlertDialog.Builder(this).setTitle("Dosya zaten var")
-      .setMessage(out.getName()+" üzerine yazılsın mı?")
-      .setPositiveButton("Üzerine yaz",(d,w)->writeZip(source,out,stored))
+      .setMessage(out.getName()+" zaten mevcut. Ne yapmak istiyorsun?")
+      .setPositiveButton("Kopya oluştur",(d,w)->writeZip(source,uniqueSibling(out),stored))
+      .setNeutralButton("Değiştir",(d,w)->writeZip(source,out,stored))
       .setNegativeButton("İptal",null).show();
   }else writeZip(source,out,stored);
  }
