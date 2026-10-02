@@ -5,6 +5,7 @@ import android.app.AlertDialog;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.graphics.Color;
+import android.graphics.Rect;
 import android.graphics.drawable.ColorDrawable;
 import android.net.Uri;
 import android.os.Build;
@@ -12,36 +13,83 @@ import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
 import android.provider.Settings;
+import android.view.MotionEvent;
 import android.view.View;
 import android.widget.Button;
 import android.widget.EditText;
+import android.widget.ImageView;
 import android.widget.LinearLayout;
+import android.widget.ScrollView;
 import android.widget.TextView;
 import androidx.core.content.FileProvider;
 import java.io.File;
+import java.util.ArrayList;
+import java.util.Locale;
 
-/** Launcher entry point. Keeps startup responsive by avoiding recursive folder-size work during first draw. */
+/** Launcher entry point with stable touch handling and no recursive startup folder scan. */
 public class FastMainActivity extends MainActivity {
     private static final int REQ_NOTIFICATIONS = 7001;
     private final Handler permissionHandler = new Handler(Looper.getMainLooper());
     private boolean storageSettingsOpened;
     private boolean notificationAsked;
+    private float gestureDownX;
+    private float gestureDownY;
 
     @Override
     public void onCreate(Bundle b) {
         getWindow().setBackgroundDrawable(new ColorDrawable(Color.rgb(10, 10, 12)));
         super.onCreate(b);
-        // Keep child controls clickable; the old root swipe listener could consume touch events.
-        if (root != null) root.setOnTouchListener(null);
+        if (root != null) {
+            // MainActivity's old root listener could consume normal taps. Gesture handling is now
+            // done at Activity level only after a real horizontal swipe is detected.
+            root.setOnTouchListener(null);
+            installRightEdgeGestureExclusion();
+        }
         restoreLargerUi();
     }
 
-    /**
-     * MainActivity calculates directory sizes recursively for every visible folder.
-     * On a storage root containing Android/data and other large trees that can hold the
-     * Android 12 splash screen open for a very long time. Return immediately for folders;
-     * regular file sizes remain exact. This is a startup correctness fix, not UI resizing.
-     */
+    @Override
+    public boolean dispatchTouchEvent(MotionEvent event) {
+        if (event.getActionMasked() == MotionEvent.ACTION_DOWN) {
+            gestureDownX = event.getRawX();
+            gestureDownY = event.getRawY();
+        } else if (event.getActionMasked() == MotionEvent.ACTION_UP) {
+            float dx = event.getRawX() - gestureDownX;
+            float dy = event.getRawY() - gestureDownY;
+            if (dx > 120f && Math.abs(dx) > Math.abs(dy) * 1.25f) {
+                // Right swipe means leave the current folder, not leave the application.
+                if (current != null && current.getParentFile() != null) {
+                    goParent();
+                }
+                return true;
+            }
+        }
+        return super.dispatchTouchEvent(event);
+    }
+
+    private void installRightEdgeGestureExclusion() {
+        if (Build.VERSION.SDK_INT >= 29 && root != null) {
+            root.post(() -> {
+                int w = root.getWidth();
+                int h = root.getHeight();
+                if (w > 0 && h > 0) {
+                    ArrayList<Rect> rects = new ArrayList<>();
+                    rects.add(new Rect(Math.max(0, w - 48), 0, w, h));
+                    root.setSystemGestureExclusionRects(rects);
+                }
+            });
+        }
+    }
+
+    @Override
+    public void onBackPressed() {
+        if (current != null && current.getParentFile() != null) {
+            goParent();
+        } else {
+            super.onBackPressed();
+        }
+    }
+
     @Override
     long directorySize(File dir) {
         if (dir == null || !dir.isDirectory()) return dir == null ? 0 : dir.length();
@@ -100,7 +148,6 @@ public class FastMainActivity extends MainActivity {
 
     private void restoreLargerUi() {
         if (root == null || root.getChildCount() < 4) return;
-
         View title = root.getChildAt(0);
         if (title instanceof TextView) {
             TextView t = (TextView) title;
@@ -108,55 +155,100 @@ public class FastMainActivity extends MainActivity {
             t.setTextSize(29);
             t.setPadding(14, 18, 14, 12);
         }
-
         View nav = root.getChildAt(1);
-        if (nav instanceof LinearLayout) {
-            LinearLayout row = (LinearLayout) nav;
-            for (int i = 0; i < row.getChildCount(); i++) {
-                View child = row.getChildAt(i);
-                if (child instanceof Button) {
-                    ((Button) child).setTextSize(16);
-                    child.getLayoutParams().height = 76;
-                    child.requestLayout();
-                } else if (child instanceof EditText) {
-                    ((EditText) child).setTextSize(19);
-                }
-            }
-        }
-
+        if (nav instanceof LinearLayout) resizeControls((LinearLayout) nav);
         View searchRow = root.getChildAt(2);
-        if (searchRow instanceof LinearLayout) {
-            LinearLayout row = (LinearLayout) searchRow;
-            for (int i = 0; i < row.getChildCount(); i++) {
-                View child = row.getChildAt(i);
-                if (child instanceof Button) {
-                    ((Button) child).setTextSize(16);
-                    child.getLayoutParams().height = 76;
-                    child.requestLayout();
-                } else if (child instanceof EditText) {
-                    ((EditText) child).setTextSize(19);
-                }
-            }
-        }
-
+        if (searchRow instanceof LinearLayout) resizeControls((LinearLayout) searchRow);
         View actions = root.getChildAt(3);
-        if (actions instanceof LinearLayout) {
-            LinearLayout row = (LinearLayout) actions;
-            for (int i = 0; i < row.getChildCount(); i++) {
-                View child = row.getChildAt(i);
-                if (child instanceof Button) {
-                    ((Button) child).setTextSize(16);
-                    child.getLayoutParams().height = 76;
-                    child.requestLayout();
-                }
+        if (actions instanceof LinearLayout) resizeButtons((LinearLayout) actions);
+    }
+
+    private void resizeControls(LinearLayout row) {
+        for (int i = 0; i < row.getChildCount(); i++) {
+            View child = row.getChildAt(i);
+            if (child instanceof Button) {
+                ((Button) child).setTextSize(16);
+                child.getLayoutParams().height = 76;
+                child.requestLayout();
+            } else if (child instanceof EditText) {
+                ((EditText) child).setTextSize(19);
             }
         }
+    }
+
+    private void resizeButtons(LinearLayout row) {
+        for (int i = 0; i < row.getChildCount(); i++) {
+            View child = row.getChildAt(i);
+            if (child instanceof Button) {
+                ((Button) child).setTextSize(16);
+                child.getLayoutParams().height = 76;
+                child.requestLayout();
+            }
+        }
+    }
+
+    /** A readable, dark long-press menu; labels are no longer clipped or hidden. */
+    @Override
+    void fileMenu(File f) {
+        if (f == null) return;
+        final boolean skk = isSkk(f.getName().toLowerCase(Locale.ROOT)) && skkInstalled();
+        final boolean archive = isArchive(f.getName().toLowerCase(Locale.ROOT));
+        final boolean apk = f.getName().toLowerCase(Locale.ROOT).endsWith(".apk");
+
+        LinearLayout box = new LinearLayout(this);
+        box.setOrientation(LinearLayout.VERTICAL);
+        box.setPadding(10, 4, 10, 10);
+
+        addMenuItem(box, "Aç", R.drawable.ic_file, () -> openFile(f));
+        if (skk) addMenuItem(box, "SKK ile aç", R.drawable.ic_skk, () -> openWithSkk(f));
+        if (archive) addMenuItem(box, "Arşiv / derleme ile aç", R.drawable.ic_tool_archive, () -> openBuild(f));
+        addMenuItem(box, "Yeniden adlandır", R.drawable.ic_file, () -> rename(f));
+        addMenuItem(box, "Kopyala", R.drawable.ic_file, () -> { clipboard = f; cutMode = false; toast("Kopyalandı"); });
+        addMenuItem(box, "Kes", R.drawable.ic_file, () -> { clipboard = f; cutMode = true; toast("Kesildi"); });
+        addMenuItem(box, "Sil", R.drawable.ic_file, () -> confirmDelete(f));
+        addMenuItem(box, "Özellikler", R.drawable.ic_tool_xml, () -> properties(f));
+        addMenuItem(box, "Paylaş", R.drawable.ic_file, () -> share(f));
+        if (apk) addMenuItem(box, "APK'ya imzala", R.drawable.ic_tool_apk, () -> apkSignDialog(f));
+        addMenuItem(box, "ZIP oluştur", R.drawable.ic_tool_archive, () -> zipSingle(f));
+
+        new AlertDialog.Builder(this, AlertDialog.THEME_DEVICE_DEFAULT_DARK)
+                .setTitle(f.getName())
+                .setView(box)
+                .setNegativeButton("Kapat", null)
+                .show();
+    }
+
+    private void addMenuItem(LinearLayout box, String label, int iconId, final Runnable action) {
+        LinearLayout row = new LinearLayout(this);
+        row.setOrientation(LinearLayout.HORIZONTAL);
+        row.setGravity(android.view.Gravity.CENTER_VERTICAL);
+        row.setPadding(12, 8, 12, 8);
+        row.setBackgroundColor(Color.rgb(24, 24, 28));
+
+        ImageView icon = new ImageView(this);
+        icon.setImageResource(iconId);
+        row.addView(icon, new LinearLayout.LayoutParams(52, 52));
+
+        TextView text = new TextView(this);
+        text.setText(label);
+        text.setTextColor(Color.WHITE);
+        text.setTextSize(16);
+        text.setGravity(android.view.Gravity.CENTER_VERTICAL);
+        text.setSingleLine(false);
+        text.setPadding(14, 4, 8, 4);
+        row.addView(text, new LinearLayout.LayoutParams(0, 68, 1));
+
+        row.setOnClickListener(v -> {
+            ((View) box.getParent());
+            action.run();
+        });
+        box.addView(row, new LinearLayout.LayoutParams(-1, 72));
     }
 
     @Override
     void openFile(File f) {
         if (f == null) return;
-        String x = f.getName().toLowerCase(java.util.Locale.ROOT);
+        String x = f.getName().toLowerCase(Locale.ROOT);
         if (isArchive(x) || isSkk(x)) {
             super.openFile(f);
             return;
