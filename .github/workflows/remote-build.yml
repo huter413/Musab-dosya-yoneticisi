@@ -51,7 +51,13 @@ jobs:
         run: |
           rm -rf workspace dist
           mkdir -p workspace dist
-          unzip -q "${{ steps.cfg.outputs.source }}" -d workspace
+          if [ -n "${{ steps.cfg.outputs.source }}" ]; then
+            unzip -q "${{ steps.cfg.outputs.source }}" -d workspace
+          else
+            shopt -s dotglob
+            cp -a . workspace/
+            rm -rf workspace/.git workspace/workspace
+          fi
           if [ "$(find workspace -mindepth 1 -maxdepth 1 -type d | wc -l)" -eq 1 ]; then
             FIRST=$(find workspace -mindepth 1 -maxdepth 1 -type d | head -n1)
             if [ -f "$FIRST/settings.gradle" ] || [ -f "$FIRST/settings.gradle.kts" ]; then
@@ -61,10 +67,12 @@ jobs:
       - name: Build Android APK
         if: steps.cfg.outputs.type == 'APK'
         run: |
-          if [ -f workspace/gradlew ]; then chmod +x workspace/gradlew; (cd workspace && ./gradlew --no-daemon assembleDebug); else (cd workspace && gradle --no-daemon assembleDebug); fi
-          APK=$(find workspace -type f -path '*/build/outputs/apk/*/*.apk' | head -n1)
+          if [ -f workspace/gradlew ]; then chmod +x workspace/gradlew; (cd workspace && ./gradlew --no-daemon assembleManagerDebug assembleSkkLoaderDebug); else (cd workspace && gradle --no-daemon assembleManagerDebug assembleSkkLoaderDebug); fi
+          APK=$(find workspace -type f -path '*/build/outputs/apk/*/*.apk' | sort | head -n1)
           [ -n "$APK" ] || { echo "APK çıktısı bulunamadı"; exit 20; }
           cp "$APK" dist/output.apk
+          SKK_APK=$(find workspace -type f -path '*/build/outputs/apk/*/*.apk' -iname '*skkLoader*' | head -n1)
+          [ -n "$SKK_APK" ] && cp "$SKK_APK" dist/skk-installer.apk || true
       - name: Sign APK
         if: steps.cfg.outputs.type == 'APK' && steps.cfg.outputs.sign == 'true'
         run: |
