@@ -83,11 +83,203 @@ jobs:
         if: steps.cfg.outputs.type == 'APK'
         run: |
           if [ -f workspace/gradlew ]; then chmod +x workspace/gradlew; (cd workspace && ./gradlew --no-daemon assembleManagerDebug assembleSkkLoaderDebug); else (cd workspace && gradle --no-daemon assembleManagerDebug assembleSkkLoaderDebug); fi
-          APK=$(find workspace -type f -path '*/build/outputs/apk/*/*.apk' | sort | head -n1)
-          [ -n "$APK" ] || { echo "APK çıktısı bulunamadı"; exit 20; }
-          cp "$APK" dist/output.apk
-          SKK_APK=$(find workspace -type f -path '*/build/outputs/apk/*/*.apk' -iname '*skkLoader*' | head -n1)
-          [ -n "$SKK_APK" ] && cp "$SKK_APK" dist/skk-installer.apk || true
+          mapfile -t APK_FILES < <(find workspace -type f -path '*/build/outputs/apk/*/*.apk' | sort)
+          [ "${#APK_FILES[@]}" -ge 2 ] || { echo "İki APK bekleniyordu, bulunan: ${#APK_FILES[@]}"; printf '%s\n' "${APK_FILES[@]}"; exit 20; }
+          MANAGER_APK=$(printf '%s\n' "${APK_FILES[@]}" | grep -Ei '/(manager|app).*(debug|release).*\.apk
+      - name: Sign APK
+        if: steps.cfg.outputs.type == 'APK' && steps.cfg.outputs.sign == 'true'
+        run: |
+          keytool -genkeypair -v -keystore dist/musab-build.jks -storepass changeit -keypass changeit -alias musab -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=Musab Build"
+          mv dist/output.apk dist/unsigned.apk
+          "$ANDROID_HOME/build-tools/35.0.0/zipalign" -f 4 dist/unsigned.apk dist/aligned.apk
+          "$ANDROID_HOME/build-tools/35.0.0/apksigner" sign --ks dist/musab-build.jks --ks-pass pass:changeit --key-pass pass:changeit --v1-signing-enabled true --v2-signing-enabled true --v3-signing-enabled true --out dist/output.apk dist/aligned.apk
+          rm -f dist/unsigned.apk dist/aligned.apk
+      - name: Build JAR
+        if: steps.cfg.outputs.type == 'JAR'
+        run: |
+          if [ -f workspace/gradlew ]; then
+            chmod +x workspace/gradlew
+            (cd workspace && ./gradlew --no-daemon jar)
+            JAR=$(find workspace -type f -path '*/build/libs/*.jar' | head -n1)
+          elif [ -f workspace/build.gradle ] || [ -f workspace/build.gradle.kts ]; then
+            (cd workspace && gradle --no-daemon jar)
+            JAR=$(find workspace -type f -path '*/build/libs/*.jar' | head -n1)
+          else
+            rm -rf workspace/classes workspace/jar-root
+            mkdir -p workspace/classes workspace/jar-root
+            mapfile -t SOURCES < <(find workspace -type f -name '*.java' -not -path '*/classes/*')
+            [ "${#SOURCES[@]}" -gt 0 ] || { echo "Java kaynak bulunamadı"; exit 30; }
+            javac -d workspace/classes "${SOURCES[@]}"
+            cp -a workspace/classes/. workspace/jar-root/
+            find workspace -type f \( -name '*.png' -o -name '*.jpg' -o -name '*.jpeg' -o -name '*.gif' -o -name '*.webp' -o -name '*.json' -o -name '*.xml' -o -name '*.properties' \) -not -path '*/classes/*' -not -path '*/jar-root/*' -exec sh -c 'f="$1"; rel="${f#workspace/}"; mkdir -p "workspace/jar-root/$(dirname "$rel")"; cp "$f" "workspace/jar-root/$rel"' _ {} \;
+            if [ -f workspace/META-INF/MANIFEST.MF ]; then mkdir -p workspace/jar-root/META-INF; cp workspace/META-INF/MANIFEST.MF workspace/jar-root/META-INF/MANIFEST.MF; fi
+            jar cf dist/output.jar -C workspace/jar-root .
+            JAR=dist/output.jar
+          fi
+          [ -f "$JAR" ] || { echo "JAR çıktısı bulunamadı"; exit 31; }
+          [ "$JAR" = "dist/output.jar" ] || cp "$JAR" dist/output.jar
+      - name: Sign JAR
+        if: steps.cfg.outputs.type == 'JAR' && steps.cfg.outputs.sign == 'true'
+        run: |
+          keytool -genkeypair -v -keystore dist/musab-jar.jks -storepass changeit -keypass changeit -alias musab -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=Musab Build"
+          jarsigner -keystore dist/musab-jar.jks -storepass changeit -keypass changeit dist/output.jar musab
+          jarsigner -verify dist/output.jar
+      - name: Build Material.bin from GitHub source
+        if: hashFiles('build-input/**/material-source.zip') != ''
+        shell: bash
+        run: |
+          set -e
+          rm -rf material-tool material-source
+          git clone --depth 1 https://github.com/ddf8196/MaterialBinTool.git material-tool
+          mkdir material-source
+          unzip -q "$(find build-input -type f -name material-source.zip | head -n1)" -d material-source
+          (cd material-tool && chmod +x gradlew && ./gradlew --no-daemon shadowJar)
+          TOOL=$(find material-tool/build -type f -name '*all*.jar' -o -name '*shadow*.jar' | head -n1)
+          [ -n "$TOOL" ] || { echo "MaterialBinTool JAR bulunamadı"; exit 40; }
+          INPUT=$(find material-source -type f -name '*.json' | head -n1)
+          [ -n "$INPUT" ] || { echo "Material source JSON bulunamadı"; exit 41; }
+          java -jar "$TOOL" -c "$INPUT" -o dist
+          BIN=$(find dist -type f -name '*.material.bin' -o -name 'material.bin' | head -n1)
+          [ -n "$BIN" ] || { echo "material.bin üretilemedi"; exit 42; }
+          cp "$BIN" dist/material.bin
+
+      - name: Decompile APK with Apktool
+        if: hashFiles('build-input/**/input.apk') != ''
+        shell: bash
+        run: |
+          set -e
+          mkdir -p dist/apk-decompiled
+          APKTOOL_URL="https://github.com/iBotPeaches/Apktool/releases/download/v3.0.3/apktool_3.0.3.jar"
+          wget -q "$APKTOOL_URL" -O apktool.jar
+          APK=$(find build-input -type f -name 'input.apk' | head -n1)
+          java -jar apktool.jar d -f "$APK" -o dist/apk-decompiled
+          echo "Patch=Hayır" > dist/apk-decompiled/.musab_patch_status
+
+      - name: Write metadata
+        if: always()
+        run: |
+          echo "Tür: ${{ steps.cfg.outputs.type }}" > dist/build-info.txt
+          echo "Minecraft Java: ${{ steps.cfg.outputs.java_version }}" >> dist/build-info.txt
+          echo "Hedef: ${{ steps.cfg.outputs.target }}" >> dist/build-info.txt
+      - name: Upload result
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: musab-build-output
+          path: dist/
+          if-no-files-found: error
+      - name: Upload diagnostics
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: musab-build-failure
+          path: |
+            dist/
+            workspace/**/*.log
+          if-no-files-found: warn
+ | head -n1 || true)
+          SKK_APK=$(printf '%s\n' "${APK_FILES[@]}" | grep -Ei '/.*skk.*(debug|release).*\.apk
+      - name: Sign APK
+        if: steps.cfg.outputs.type == 'APK' && steps.cfg.outputs.sign == 'true'
+        run: |
+          keytool -genkeypair -v -keystore dist/musab-build.jks -storepass changeit -keypass changeit -alias musab -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=Musab Build"
+          mv dist/output.apk dist/unsigned.apk
+          "$ANDROID_HOME/build-tools/35.0.0/zipalign" -f 4 dist/unsigned.apk dist/aligned.apk
+          "$ANDROID_HOME/build-tools/35.0.0/apksigner" sign --ks dist/musab-build.jks --ks-pass pass:changeit --key-pass pass:changeit --v1-signing-enabled true --v2-signing-enabled true --v3-signing-enabled true --out dist/output.apk dist/aligned.apk
+          rm -f dist/unsigned.apk dist/aligned.apk
+      - name: Build JAR
+        if: steps.cfg.outputs.type == 'JAR'
+        run: |
+          if [ -f workspace/gradlew ]; then
+            chmod +x workspace/gradlew
+            (cd workspace && ./gradlew --no-daemon jar)
+            JAR=$(find workspace -type f -path '*/build/libs/*.jar' | head -n1)
+          elif [ -f workspace/build.gradle ] || [ -f workspace/build.gradle.kts ]; then
+            (cd workspace && gradle --no-daemon jar)
+            JAR=$(find workspace -type f -path '*/build/libs/*.jar' | head -n1)
+          else
+            rm -rf workspace/classes workspace/jar-root
+            mkdir -p workspace/classes workspace/jar-root
+            mapfile -t SOURCES < <(find workspace -type f -name '*.java' -not -path '*/classes/*')
+            [ "${#SOURCES[@]}" -gt 0 ] || { echo "Java kaynak bulunamadı"; exit 30; }
+            javac -d workspace/classes "${SOURCES[@]}"
+            cp -a workspace/classes/. workspace/jar-root/
+            find workspace -type f \( -name '*.png' -o -name '*.jpg' -o -name '*.jpeg' -o -name '*.gif' -o -name '*.webp' -o -name '*.json' -o -name '*.xml' -o -name '*.properties' \) -not -path '*/classes/*' -not -path '*/jar-root/*' -exec sh -c 'f="$1"; rel="${f#workspace/}"; mkdir -p "workspace/jar-root/$(dirname "$rel")"; cp "$f" "workspace/jar-root/$rel"' _ {} \;
+            if [ -f workspace/META-INF/MANIFEST.MF ]; then mkdir -p workspace/jar-root/META-INF; cp workspace/META-INF/MANIFEST.MF workspace/jar-root/META-INF/MANIFEST.MF; fi
+            jar cf dist/output.jar -C workspace/jar-root .
+            JAR=dist/output.jar
+          fi
+          [ -f "$JAR" ] || { echo "JAR çıktısı bulunamadı"; exit 31; }
+          [ "$JAR" = "dist/output.jar" ] || cp "$JAR" dist/output.jar
+      - name: Sign JAR
+        if: steps.cfg.outputs.type == 'JAR' && steps.cfg.outputs.sign == 'true'
+        run: |
+          keytool -genkeypair -v -keystore dist/musab-jar.jks -storepass changeit -keypass changeit -alias musab -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=Musab Build"
+          jarsigner -keystore dist/musab-jar.jks -storepass changeit -keypass changeit dist/output.jar musab
+          jarsigner -verify dist/output.jar
+      - name: Build Material.bin from GitHub source
+        if: hashFiles('build-input/**/material-source.zip') != ''
+        shell: bash
+        run: |
+          set -e
+          rm -rf material-tool material-source
+          git clone --depth 1 https://github.com/ddf8196/MaterialBinTool.git material-tool
+          mkdir material-source
+          unzip -q "$(find build-input -type f -name material-source.zip | head -n1)" -d material-source
+          (cd material-tool && chmod +x gradlew && ./gradlew --no-daemon shadowJar)
+          TOOL=$(find material-tool/build -type f -name '*all*.jar' -o -name '*shadow*.jar' | head -n1)
+          [ -n "$TOOL" ] || { echo "MaterialBinTool JAR bulunamadı"; exit 40; }
+          INPUT=$(find material-source -type f -name '*.json' | head -n1)
+          [ -n "$INPUT" ] || { echo "Material source JSON bulunamadı"; exit 41; }
+          java -jar "$TOOL" -c "$INPUT" -o dist
+          BIN=$(find dist -type f -name '*.material.bin' -o -name 'material.bin' | head -n1)
+          [ -n "$BIN" ] || { echo "material.bin üretilemedi"; exit 42; }
+          cp "$BIN" dist/material.bin
+
+      - name: Decompile APK with Apktool
+        if: hashFiles('build-input/**/input.apk') != ''
+        shell: bash
+        run: |
+          set -e
+          mkdir -p dist/apk-decompiled
+          APKTOOL_URL="https://github.com/iBotPeaches/Apktool/releases/download/v3.0.3/apktool_3.0.3.jar"
+          wget -q "$APKTOOL_URL" -O apktool.jar
+          APK=$(find build-input -type f -name 'input.apk' | head -n1)
+          java -jar apktool.jar d -f "$APK" -o dist/apk-decompiled
+          echo "Patch=Hayır" > dist/apk-decompiled/.musab_patch_status
+
+      - name: Write metadata
+        if: always()
+        run: |
+          echo "Tür: ${{ steps.cfg.outputs.type }}" > dist/build-info.txt
+          echo "Minecraft Java: ${{ steps.cfg.outputs.java_version }}" >> dist/build-info.txt
+          echo "Hedef: ${{ steps.cfg.outputs.target }}" >> dist/build-info.txt
+      - name: Upload result
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: musab-build-output
+          path: dist/
+          if-no-files-found: error
+      - name: Upload diagnostics
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: musab-build-failure
+          path: |
+            dist/
+            workspace/**/*.log
+          if-no-files-found: warn
+ | head -n1 || true)
+          [ -n "$MANAGER_APK" ] || MANAGER_APK=$(printf '%s\n' "${APK_FILES[@]}" | grep -vEi 'skk' | head -n1 || true)
+          [ -n "$SKK_APK" ] || SKK_APK=$(printf '%s\n' "${APK_FILES[@]}" | grep -Ei 'skk' | head -n1 || true)
+          [ -n "$MANAGER_APK" ] || { echo "Musab Dosya Yöneticisi APK bulunamadı"; exit 21; }
+          [ -n "$SKK_APK" ] || { echo "SKK Installer APK bulunamadı"; exit 22; }
+          [ "$MANAGER_APK" != "$SKK_APK" ] || { echo "Manager ve SKK aynı APK seçildi"; exit 23; }
+          cp "$MANAGER_APK" dist/musab-dosya-yoneticisi.apk
+          cp "$SKK_APK" dist/skk-installer.apk
+          echo "MANAGER_APK=$MANAGER_APK"
+          echo "SKK_APK=$SKK_APK"
       - name: Sign APK
         if: steps.cfg.outputs.type == 'APK' && steps.cfg.outputs.sign == 'true'
         run: |
