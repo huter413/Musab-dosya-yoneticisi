@@ -110,10 +110,13 @@ jobs:
         if: steps.cfg.outputs.type == 'APK' && steps.cfg.outputs.sign == 'true'
         run: |
           keytool -genkeypair -v -keystore dist/musab-build.jks -storepass changeit -keypass changeit -alias musab -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=Musab Build"
-          mv dist/output.apk dist/unsigned.apk
-          "$ANDROID_HOME/build-tools/35.0.0/zipalign" -f 4 dist/unsigned.apk dist/aligned.apk
-          "$ANDROID_HOME/build-tools/35.0.0/apksigner" sign --ks dist/musab-build.jks --ks-pass pass:changeit --key-pass pass:changeit --v1-signing-enabled true --v2-signing-enabled true --v3-signing-enabled true --out dist/output.apk dist/aligned.apk
-          rm -f dist/unsigned.apk dist/aligned.apk
+          for APK in dist/musab-dosya-yoneticisi.apk dist/skk-installer.apk; do
+            BASE="${APK%.apk}"
+            "$ANDROID_HOME/build-tools/35.0.0/zipalign" -f 4 "$APK" "${BASE}-aligned.apk"
+            "$ANDROID_HOME/build-tools/35.0.0/apksigner" sign --ks dist/musab-build.jks --ks-pass pass:changeit --key-pass pass:changeit --v1-signing-enabled true --v2-signing-enabled true --v3-signing-enabled true --out "${BASE}-signed.apk" "${BASE}-aligned.apk"
+            mv "${BASE}-signed.apk" "$APK"
+            rm -f "${BASE}-aligned.apk"
+          done
       - name: Build JAR
         if: steps.cfg.outputs.type == 'JAR'
         run: |
