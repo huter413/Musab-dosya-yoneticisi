@@ -43,7 +43,23 @@ public class MusabBuildActivity extends Activity {
         box.addView(tv("Gerçek motor: Musab Derleme Servisi → GitHub Actions + Gradle + JDK + Android SDK",13));
         box.addView(tv("GitHub token uygulamada tutulmaz. Servis tarafında güvenli Secret olarak kullanılır.",12));
 
-        sign=new CheckBox(this);sign.setText("Derlerken imzala");sign.setTextColor(Color.WHITE);box.addView(sign);
+        LinearLayout signRow=new LinearLayout(this);
+        signRow.setOrientation(LinearLayout.HORIZONTAL);
+        TextView signLabel=tv("İmza",14);
+        signRow.addView(signLabel,new LinearLayout.LayoutParams(0,-2,1));
+        RadioGroup signGroup=new RadioGroup(this);
+        signGroup.setOrientation(RadioGroup.HORIZONTAL);
+        RadioButton signed=new RadioButton(this); signed.setText("İmzalı"); signed.setTextColor(Color.WHITE);
+        RadioButton unsigned=new RadioButton(this); unsigned.setText("İmzasız"); unsigned.setTextColor(Color.rgb(33,150,243));
+        signGroup.addView(signed); signGroup.addView(unsigned); unsigned.setChecked(true);
+        signRow.addView(signGroup); box.addView(signRow);
+        sign=new CheckBox(this); sign.setVisibility(View.GONE); sign.setChecked(false); box.addView(sign);
+        signed.setOnCheckedChangeListener((button,checked)->{
+            if(checked){ sign.setChecked(true); button.setTextColor(Color.rgb(33,150,243)); unsigned.setTextColor(Color.WHITE); }
+        });
+        unsigned.setOnCheckedChangeListener((button,checked)->{
+            if(checked){ sign.setChecked(false); button.setTextColor(Color.rgb(33,150,243)); signed.setTextColor(Color.WHITE); }
+        });
 
         box.addView(tv("Minecraft Java sürümü",15));
         javaVersion=new Spinner(this);
