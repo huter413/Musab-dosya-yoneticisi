@@ -23,15 +23,25 @@ jobs:
         id: cfg
         shell: bash
         run: |
-          SOURCE=$(find build-input -type f \( -name source.zip -o -name source.jar \) | head -n 1)
-          [ -n "$SOURCE" ] || { echo "Kaynak bulunamadı"; exit 1; }
-          DIR=$(dirname "$SOURCE")
-          [ -f "$DIR/config.json" ] || { echo "config.json bulunamadı"; exit 1; }
+          SOURCE=$(find build-input -type f \( -name source.zip -o -name source.jar \) 2>/dev/null | head -n 1 || true)
+          if [ -n "$SOURCE" ]; then
+            DIR=$(dirname "$SOURCE")
+            [ -f "$DIR/config.json" ] || { echo "config.json bulunamadı"; exit 1; }
+            TYPE=$(jq -r '.type // "APK"' "$DIR/config.json")
+            SIGN=$(jq -r '.sign // false' "$DIR/config.json")
+            JAVA=$(jq -r '.javaVersion // "Android"' "$DIR/config.json")
+            TARGET=$(jq -r '.target // "Android"' "$DIR/config.json")
+          else
+            TYPE="APK"
+            SIGN="false"
+            JAVA="Android"
+            TARGET="Android"
+          fi
           echo "source=$SOURCE" >> "$GITHUB_OUTPUT"
-          echo "type=$(jq -r '.type // "APK"' "$DIR/config.json")" >> "$GITHUB_OUTPUT"
-          echo "sign=$(jq -r '.sign // false' "$DIR/config.json")" >> "$GITHUB_OUTPUT"
-          echo "java_version=$(jq -r '.javaVersion // "Seç"' "$DIR/config.json")" >> "$GITHUB_OUTPUT"
-          echo "target=$(jq -r '.target // "Seç"' "$DIR/config.json")" >> "$GITHUB_OUTPUT"
+          echo "type=$TYPE" >> "$GITHUB_OUTPUT"
+          echo "sign=$SIGN" >> "$GITHUB_OUTPUT"
+          echo "java_version=$JAVA" >> "$GITHUB_OUTPUT"
+          echo "target=$TARGET" >> "$GITHUB_OUTPUT"
       - name: Select JDK
         uses: actions/setup-java@v5
         with:
