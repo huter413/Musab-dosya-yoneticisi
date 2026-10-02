@@ -26,10 +26,20 @@ public class MusabBuildActivity extends Activity {
     }
 
     TextView tv(String s,int sp){
-        TextView t=new TextView(this);t.setText(s);t.setTextSize(sp);t.setTextColor(Color.WHITE);
-        t.setPadding(14,10,14,10);return t;
+        TextView t=new TextView(this);
+        t.setText(s); t.setTextSize(sp); t.setTextColor(Color.WHITE);
+        t.setGravity(Gravity.CENTER_VERTICAL);
+        t.setPadding(14,8,14,8);
+        t.setMaxLines(2);
+        t.setEllipsize(android.text.TextUtils.TruncateAt.END);
+        return t;
     }
-    Button btn(String s){Button b=new Button(this);b.setText(s);return b;}
+    Button btn(String s){
+        Button b=new Button(this);
+        b.setText(s); b.setTextSize(14); b.setMaxLines(1);
+        b.setEllipsize(android.text.TextUtils.TruncateAt.END);
+        return b;
+    }
 
     void buildUi(){
         LinearLayout root=new LinearLayout(this);root.setOrientation(LinearLayout.VERTICAL);
@@ -40,8 +50,8 @@ public class MusabBuildActivity extends Activity {
         ScrollView scroll=new ScrollView(this);
         LinearLayout box=new LinearLayout(this);box.setOrientation(LinearLayout.VERTICAL);
         box.addView(tv("Kaynak: "+source.getName(),16));
-        box.addView(tv("Gerçek motor: Musab Derleme Servisi → GitHub Actions + Gradle + JDK + Android SDK",13));
-        box.addView(tv("GitHub token uygulamada tutulmaz. Servis tarafında güvenli Secret olarak kullanılır.",12));
+        box.addView(tv("Gerçek motor: Musab Derleme Servisi / GitHub Actions / Gradle / JDK / Android SDK",13));
+        box.addView(tv("GitHub token uygulamada tutulmaz; servis tarafında güvenli Secret olarak kullanılır.",12));
 
         LinearLayout signRow=new LinearLayout(this);
         signRow.setOrientation(LinearLayout.HORIZONTAL);
