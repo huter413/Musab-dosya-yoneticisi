@@ -195,32 +195,64 @@ public class MusabArchiveViewerActivity extends Activity {
             try {
                 ZipEntry entry = findEntry(normalized);
                 if (entry == null || entry.isDirectory()) throw new IOException("Dosya bulunamadı");
+
+                // Her arşiv girdisi mutlaka bir Musab Activity'sine gönderilir.
+                // Metin/XML -> Musab Text (düzenlenebilir), görsel/video/ses -> kendi
+                // görüntüleyicisi, bilinmeyen ikili dosyalar -> Musab Text fallback.
+                temp = extractToCache(entry, normalized);
                 String lower = normalized.toLowerCase(Locale.ROOT);
-                if (isExternalBinary(lower)) {
-                    runOnUiThread(() -> openExternalEntry(normalized));
-                    return;
+                Intent i;
+
+                if (isImage(lower)) {
+                    i = new Intent(this, MusabImageViewerActivity.class);
+                } else if (isVideo(lower)) {
+                    i = new Intent(this, MusabVideoViewerActivity.class);
+                } else if (isAudio(lower)) {
+                    i = new Intent(this, MusabAudioPlayerActivity.class);
+                } else {
+                    i = new Intent(this, MusabTextActivity.class);
+                    i.putExtra("archivePath", path);
+                    i.putExtra("archiveEntry", normalized);
+                    i.putExtra("archiveTemp", true);
                 }
-                if (!isEditableText(lower)) {
-                    runOnUiThread(() -> openExternalEntry(normalized));
-                    return;
-                }
-                temp = new File(getCacheDir(), "archive_edit_" + System.currentTimeMillis() + "_" + safeName(new File(normalized).getName()));
-                try (InputStream in = zip.getInputStream(entry); OutputStream out = new FileOutputStream(temp)) {
-                    byte[] buf = new byte[8192];
-                    int n;
-                    while ((n = in.read(buf)) != -1) out.write(buf, 0, n);
-                }
-                Intent i = new Intent(this, MusabTextActivity.class);
+
                 i.putExtra("path", temp.getAbsolutePath());
-                i.putExtra("archivePath", path);
-                i.putExtra("archiveEntry", normalized);
-                i.putExtra("archiveTemp", true);
                 startActivityForResult(i, 9124);
             } catch (Exception e) {
                 if (temp != null) temp.delete();
                 runOnUiThread(() -> Toast.makeText(this, "Dosya açılamadı: " + e.getMessage(), Toast.LENGTH_LONG).show());
             }
         }).start();
+    }
+
+    File extractToCache(ZipEntry entry, String entryName) throws Exception {
+        File temp = new File(getCacheDir(),
+                "archive_edit_" + System.currentTimeMillis() + "_" + safeName(new File(entryName).getName()));
+        try (InputStream in = zip.getInputStream(entry);
+             OutputStream out = new FileOutputStream(temp)) {
+            byte[] buf = new byte[16384];
+            int n;
+            while ((n = in.read(buf)) != -1) out.write(buf, 0, n);
+        }
+        return temp;
+    }
+
+    boolean isImage(String n) {
+        return n.endsWith(".png") || n.endsWith(".jpg") || n.endsWith(".jpeg") ||
+               n.endsWith(".webp") || n.endsWith(".gif") || n.endsWith(".bmp") ||
+               n.endsWith(".heic") || n.endsWith(".heif");
+    }
+
+    boolean isVideo(String n) {
+        return n.endsWith(".mp4") || n.endsWith(".mkv") || n.endsWith(".webm") ||
+               n.endsWith(".3gp") || n.endsWith(".avi") || n.endsWith(".mov") ||
+               n.endsWith(".m4v");
+    }
+
+    boolean isAudio(String n) {
+        return n.endsWith(".mp3") || n.endsWith(".m4a") || n.endsWith(".aac") ||
+               n.endsWith(".wav") || n.endsWith(".ogg") || n.endsWith(".opus") ||
+               n.endsWith(".flac") || n.endsWith(".amr");
     }
 
     boolean isEditableText(String name) {
@@ -249,32 +281,9 @@ public class MusabArchiveViewerActivity extends Activity {
     }
 
     void openExternalEntry(String entryName) {
-        new Thread(() -> {
-            try {
-                ZipEntry entry = findEntry(entryName);
-                if (entry == null) throw new IOException("Dosya bulunamadı");
-                File temp = new File(getCacheDir(), "archive_open_" + System.currentTimeMillis() + "_" + safeName(new File(entryName).getName()));
-                try (InputStream in = zip.getInputStream(entry); OutputStream out = new FileOutputStream(temp)) {
-                    byte[] buf = new byte[8192];
-                    int n;
-                    while ((n = in.read(buf)) != -1) out.write(buf, 0, n);
-                }
-                Uri uri = FileProvider.getUriForFile(this, getPackageName() + ".fileprovider", temp);
-                String lower = entryName.toLowerCase(Locale.ROOT);
-                String mime = lower.endsWith(".xml") ? "text/xml" : "application/octet-stream";
-                Intent edit = new Intent(Intent.ACTION_EDIT);
-                edit.setDataAndType(uri, mime);
-                edit.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION | Intent.FLAG_GRANT_WRITE_URI_PERMISSION);
-                Intent view = new Intent(Intent.ACTION_VIEW);
-                view.setDataAndType(uri, mime);
-                view.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
-                Intent chooser = Intent.createChooser(edit, "Düzenleyici ile aç");
-                chooser.putExtra(Intent.EXTRA_INITIAL_INTENTS, new Intent[]{view});
-                startActivity(chooser);
-            } catch (Exception e) {
-                runOnUiThread(() -> Toast.makeText(this, "Düzenleyici bulunamadı: " + e.getMessage(), Toast.LENGTH_LONG).show());
-            }
-        }).start();
+        // Arşivden çıkan dosyalarda bile Android uygulamasına geçmeden önce
+        // her zaman bir Musab Activity kullan.
+        openArchiveEntry(entryName);
     }
 
     String safeName(String name) {
@@ -315,6 +324,15 @@ public class MusabArchiveViewerActivity extends Activity {
         t.setTextSize(16);
         t.setPadding(18,24,18,24);
         list.addView(t);
+    }
+
+    @Override protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+        if (requestCode == 9124 && resultCode == RESULT_OK) {
+            try { if (zip != null) zip.close(); } catch (Exception ignored) {}
+            zip = null;
+            loadRoot();
+        }
     }
 
     @Override public void onBackPressed() {
