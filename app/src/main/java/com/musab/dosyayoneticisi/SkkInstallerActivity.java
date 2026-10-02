@@ -25,6 +25,7 @@ public class SkkInstallerActivity extends Activity {
     private Drawable targetIcon;
     private String targetPackage;
     private boolean updateMode;
+    private PackageInstaller.Session installSession;
     private long incomingVersion = -1;
     private long installedVersion = -1;
 
@@ -316,18 +317,46 @@ public class SkkInstallerActivity extends Activity {
     }
 
     private void launchAndroidInstaller(ProgressBar bar, TextView installing) {
-        try {
-            Uri u = FileProvider.getUriForFile(this, getPackageName() + ".fileprovider", apkFile);
-            Intent i = new Intent(Intent.ACTION_INSTALL_PACKAGE);
-            i.setDataAndType(u, "application/vnd.android.package-archive");
-            i.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
-            i.putExtra(Intent.EXTRA_INSTALLER_PACKAGE_NAME, getPackageName());
-            bar.setProgress(100);
-            installing.setText(updateMode ? "Android güncelleme ekranı açılıyor..." : "Android kurulum ekranı açılıyor...");
-            startActivity(i);
-        } catch (Exception e) {
-            showError("Android kurulum ekranı açılamadı: " + e.getMessage());
+        // Custom SKK UI: use Android's PackageInstaller session API directly.
+        // Do not launch ACTION_INSTALL_PACKAGE for SKK.
+        if (apkFile == null || !apkFile.isFile()) {
+            showError("SKK paketi bulunamadı."); return;
         }
+        new Thread(() -> {
+            PackageInstaller.Session session = null;
+            try {
+                PackageInstaller installer = getPackageManager().getPackageInstaller();
+                PackageInstaller.SessionParams params = new PackageInstaller.SessionParams(
+                        PackageInstaller.SessionParams.MODE_FULL_INSTALL);
+                if (updateMode) params.setInstallReason(PackageManager.INSTALL_REASON_USER);
+                int sid = installer.createSession(params);
+                session = installer.openSession(sid);
+                installSession = session;
+                try (InputStream in = new FileInputStream(apkFile);
+                     OutputStream out = session.openWrite("base.apk", 0, apkFile.length())) {
+                    byte[] buf = new byte[8192]; int n; long done = 0;
+                    while ((n = in.read(buf)) != -1) {
+                        out.write(buf, 0, n); done += n;
+                        final int pp = (int)Math.min(95, done * 95L / Math.max(1, apkFile.length()));
+                        runOnUiThread(() -> bar.setProgress(pp));
+                    }
+                    session.fsync(out);
+                }
+                Intent callback = new Intent(this, SkkInstallReceiver.class);
+                callback.setAction("com.musab.dosyayoneticisi.SKK_INSTALL_RESULT");
+                callback.putExtra("sessionId", sid);
+                PendingIntent pi = PendingIntent.getBroadcast(this, sid, callback,
+                        PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_MUTABLE);
+                session.commit(pi.getIntentSender());
+                runOnUiThread(() -> {
+                    bar.setProgress(100);
+                    installing.setText("SKK kurulumu tamamlanıyor...");
+                });
+            } catch (Exception e) {
+                if (session != null) try { session.abandon(); } catch (Exception ignored) {}
+                runOnUiThread(() -> showError("Özel SKK kurulumu başlatılamadı: " + e.getMessage()));
+            }
+        }).start();
     }
 
     private void deleteTemp() {
