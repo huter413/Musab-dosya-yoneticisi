@@ -91,14 +91,11 @@ jobs:
           APK_COUNT=$(find workspace -type f -path '*/build/outputs/apk/*/*.apk' | wc -l)
           echo "Bulunan APK sayısı: $APK_COUNT"
           [ "$APK_COUNT" -ge 2 ] || { echo "İki APK bekleniyordu"; find workspace -type f -path '*/build/outputs/apk/*/*.apk' -print; exit 20; }
-          MANAGER_APK=$(find workspace -type f -path '*/build/outputs/apk/*/*.apk' | grep -Ei '/(manager|app).*(debug|release).*\.apk$' | head -n1 || true)
-          SKK_APK=$(find workspace -type f -path '*/build/outputs/apk/*/*.apk' | grep -Ei '/.*skk.*(debug|release).*\.apk$' | head -n1 || true)
-          if [ -z "$MANAGER_APK" ]; then
-            MANAGER_APK=$(find workspace -type f -path '*/build/outputs/apk/*/*.apk' | grep -vi skk | head -n1 || true)
-          fi
-          if [ -z "$SKK_APK" ]; then
-            SKK_APK=$(find workspace -type f -path '*/build/outputs/apk/*/*.apk' | grep -i skk | head -n1 || true)
-          fi
+          # Önce Gradle'ın bu projedeki kesin çıktı yollarını kullan.
+          MANAGER_APK="workspace/app/build/outputs/apk/manager/debug/app-manager-debug.apk"
+          SKK_APK="workspace/app/build/outputs/apk/skkLoader/debug/app-skkLoader-debug.apk"
+          [ -f "$MANAGER_APK" ] || MANAGER_APK=$(find workspace -type f -path '*/build/outputs/apk/*/*.apk' ! -iname '*skk*' | head -n1 || true)
+          [ -f "$SKK_APK" ] || SKK_APK=$(find workspace -type f -path '*/build/outputs/apk/*/*.apk' -iname '*skk*' | head -n1 || true)
           [ -n "$MANAGER_APK" ] || { echo "Musab Dosya Yöneticisi APK bulunamadı"; exit 21; }
           [ -n "$SKK_APK" ] || { echo "SKK Installer APK bulunamadı"; exit 22; }
           [ "$MANAGER_APK" != "$SKK_APK" ] || { echo "Manager ve SKK aynı APK seçildi"; exit 23; }
