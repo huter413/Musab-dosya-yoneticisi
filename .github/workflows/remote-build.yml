@@ -46,7 +46,7 @@ jobs:
         uses: actions/setup-java@v5
         with:
           distribution: temurin
-          java-version: ${{ contains(steps.cfg.outputs.java_version, '1.21') && '21' || contains(steps.cfg.outputs.java_version, '1.20') && '21' || contains(steps.cfg.outputs.java_version, '1.19') && '17' || contains(steps.cfg.outputs.java_version, '1.18') && '17' || contains(steps.cfg.outputs.java_version, '1.17') && '17' || contains(steps.cfg.outputs.java_version, '1.16') && '11' || '8' }}
+          java-version: ${{ contains(steps.cfg.outputs.java_version, '1.21') && '21' || contains(steps.cfg.outputs.java_version, '1.20') && '21' || contains(steps.cfg.outputs.java_version, '1.19') && '17' || contains(steps.cfg.outputs.java_version, '1.18') && '17' || contains(steps.cfg.outputs.java_version, '1.17') && '17' || contains(steps.cfg.outputs.java_version, '1.16') && '11' || '17' }}
       - name: Install Android SDK
         if: steps.cfg.outputs.type == 'APK'
         uses: android-actions/setup-android@v3
