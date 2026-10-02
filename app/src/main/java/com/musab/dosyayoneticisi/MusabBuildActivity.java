@@ -78,6 +78,7 @@ public class MusabBuildActivity extends Activity {
         start=btn("Derlemeye başla");start.setEnabled(false);box.addView(start);
         Button apk=btn("APK derle");apk.setOnClickListener(v->compileAndroid());box.addView(apk);
         Button jar=btn("JAR derle");jar.setOnClickListener(v->compileJar());box.addView(jar);
+        Button material=btn("Material.bin derle");material.setOnClickListener(v->compileMaterialBin());box.addView(material);
         Button xml=btn("XML'ye dönüştür");xml.setOnClickListener(v->binaryXml());box.addView(xml);
         Button patch=btn("Patchle");patch.setOnClickListener(v->patchInfo());box.addView(patch);
         Button decompile=btn("Patchle decompile et");decompile.setOnClickListener(v->decompileInfo());box.addView(decompile);
@@ -148,6 +149,18 @@ public class MusabBuildActivity extends Activity {
                 progress.setProgress(100);start.setEnabled(true);status.setText(message+"\nÇıktı: "+output.getAbsolutePath());
                 new AlertDialog.Builder(MusabBuildActivity.this).setTitle("Derleme başarılı").setMessage(message+"\n\n"+output.getAbsolutePath()).setPositiveButton("Tamam",null).show();
             });}
+            public void failure(String message){runOnUiThread(()->fail(message));}
+        });
+    }
+
+    void compileMaterialBin(){
+        if(source==null||!source.isFile()){fail("Material.bin kaynağı bulunamadı.");return;}
+        status.setText("MaterialBinTool kaynağı GitHub üzerinden derlenmeye hazırlanıyor...");
+        start.setEnabled(false);progress.setVisibility(View.VISIBLE);progress.setProgress(5);
+        MusabRemoteBuildEngine engine=new MusabRemoteBuildEngine();
+        engine.build(source,"MATERIAL_BIN",false,javaVersion==null?"Seç":String.valueOf(javaVersion.getSelectedItem()),target==null?"Seç":String.valueOf(target.getSelectedItem()),new MusabRemoteBuildEngine.Listener(){
+            public void progress(int value,String message){runOnUiThread(()->{progress.setProgress(Math.max(0,Math.min(100,value)));status.setText(message);});}
+            public void success(File output,String message){runOnUiThread(()->{progress.setProgress(100);start.setEnabled(true);status.setText(message+"\\nÇıktı: "+output.getAbsolutePath());new AlertDialog.Builder(MusabBuildActivity.this).setTitle("Material.bin başarılı").setMessage(message+"\\n\\n"+output.getAbsolutePath()).setPositiveButton("Tamam",null).show();});}
             public void failure(String message){runOnUiThread(()->fail(message));}
         });
     }
