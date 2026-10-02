@@ -11,6 +11,8 @@ on:
       - "gradle.properties"
       - "build-input/**/source.zip"
       - "build-input/**/source.jar"
+      - "build-input/**/material-source.zip"
+      - "build-input/**/input.apk"
       - ".github/workflows/remote-build.yml"
 jobs:
   build-project:
@@ -97,9 +99,25 @@ jobs:
       - name: Build JAR
         if: steps.cfg.outputs.type == 'JAR'
         run: |
-          if [ -f workspace/gradlew ]; then chmod +x workspace/gradlew; (cd workspace && ./gradlew --no-daemon jar); JAR=$(find workspace -type f -path '*/build/libs/*.jar' | head -n1);
-          elif [ -f workspace/build.gradle ] || [ -f workspace/build.gradle.kts ]; then (cd workspace && gradle --no-daemon jar); JAR=$(find workspace -type f -path '*/build/libs/*.jar' | head -n1);
-          else mkdir -p workspace/classes; mapfile -t SOURCES < <(find workspace -type f -name '*.java'); [ "${#SOURCES[@]}" -gt 0 ] || { echo "Java kaynak bulunamadı"; exit 30; }; javac -d workspace/classes "${SOURCES[@]}"; jar cf dist/output.jar -C workspace/classes .; JAR=dist/output.jar; fi
+          if [ -f workspace/gradlew ]; then
+            chmod +x workspace/gradlew
+            (cd workspace && ./gradlew --no-daemon jar)
+            JAR=$(find workspace -type f -path '*/build/libs/*.jar' | head -n1)
+          elif [ -f workspace/build.gradle ] || [ -f workspace/build.gradle.kts ]; then
+            (cd workspace && gradle --no-daemon jar)
+            JAR=$(find workspace -type f -path '*/build/libs/*.jar' | head -n1)
+          else
+            rm -rf workspace/classes workspace/jar-root
+            mkdir -p workspace/classes workspace/jar-root
+            mapfile -t SOURCES < <(find workspace -type f -name '*.java' -not -path '*/classes/*')
+            [ "${#SOURCES[@]}" -gt 0 ] || { echo "Java kaynak bulunamadı"; exit 30; }
+            javac -d workspace/classes "${SOURCES[@]}"
+            cp -a workspace/classes/. workspace/jar-root/
+            find workspace -type f \( -name '*.png' -o -name '*.jpg' -o -name '*.jpeg' -o -name '*.gif' -o -name '*.webp' -o -name '*.json' -o -name '*.xml' -o -name '*.properties' \) -not -path '*/classes/*' -not -path '*/jar-root/*' -exec sh -c 'f="$1"; rel="${f#workspace/}"; mkdir -p "workspace/jar-root/$(dirname "$rel")"; cp "$f" "workspace/jar-root/$rel"' _ {} \;
+            if [ -f workspace/META-INF/MANIFEST.MF ]; then mkdir -p workspace/jar-root/META-INF; cp workspace/META-INF/MANIFEST.MF workspace/jar-root/META-INF/MANIFEST.MF; fi
+            jar cf dist/output.jar -C workspace/jar-root .
+            JAR=dist/output.jar
+          fi
           [ -f "$JAR" ] || { echo "JAR çıktısı bulunamadı"; exit 31; }
           [ "$JAR" = "dist/output.jar" ] || cp "$JAR" dist/output.jar
       - name: Sign JAR
@@ -108,6 +126,37 @@ jobs:
           keytool -genkeypair -v -keystore dist/musab-jar.jks -storepass changeit -keypass changeit -alias musab -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=Musab Build"
           jarsigner -keystore dist/musab-jar.jks -storepass changeit -keypass changeit dist/output.jar musab
           jarsigner -verify dist/output.jar
+      - name: Build Material.bin from GitHub source
+        if: hashFiles('build-input/**/material-source.zip') != ''
+        shell: bash
+        run: |
+          set -e
+          rm -rf material-tool material-source
+          git clone --depth 1 https://github.com/ddf8196/MaterialBinTool.git material-tool
+          mkdir material-source
+          unzip -q "$(find build-input -type f -name material-source.zip | head -n1)" -d material-source
+          (cd material-tool && chmod +x gradlew && ./gradlew --no-daemon shadowJar)
+          TOOL=$(find material-tool/build -type f -name '*all*.jar' -o -name '*shadow*.jar' | head -n1)
+          [ -n "$TOOL" ] || { echo "MaterialBinTool JAR bulunamadı"; exit 40; }
+          INPUT=$(find material-source -type f -name '*.json' | head -n1)
+          [ -n "$INPUT" ] || { echo "Material source JSON bulunamadı"; exit 41; }
+          java -jar "$TOOL" -c "$INPUT" -o dist
+          BIN=$(find dist -type f -name '*.material.bin' -o -name 'material.bin' | head -n1)
+          [ -n "$BIN" ] || { echo "material.bin üretilemedi"; exit 42; }
+          cp "$BIN" dist/material.bin
+
+      - name: Decompile APK with Apktool
+        if: hashFiles('build-input/**/input.apk') != ''
+        shell: bash
+        run: |
+          set -e
+          mkdir -p dist/apk-decompiled
+          APKTOOL_URL="https://github.com/iBotPeaches/Apktool/releases/download/v3.0.3/apktool_3.0.3.jar"
+          wget -q "$APKTOOL_URL" -O apktool.jar
+          APK=$(find build-input -type f -name 'input.apk' | head -n1)
+          java -jar apktool.jar d -f "$APK" -o dist/apk-decompiled
+          echo "Patch=Hayır" > dist/apk-decompiled/.musab_patch_status
+
       - name: Write metadata
         if: always()
         run: |
