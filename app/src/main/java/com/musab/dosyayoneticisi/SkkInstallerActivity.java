@@ -3,7 +3,7 @@ package com.musab.dosyayoneticisi;
 import android.app.*;
 import android.os.*;
 import android.content.*;
-import android.content.pm.*;
+import android.content.pm.*;import android.content.pm.SigningInfo;
 import android.graphics.Color;
 import android.graphics.drawable.Drawable;
 import android.net.Uri;
@@ -23,6 +23,10 @@ public class SkkInstallerActivity extends Activity {
     private ImageView appIconView;
     private String targetName = "Uygulama";
     private Drawable targetIcon;
+    private String targetPackage;
+    private boolean updateMode;
+    private long incomingVersion = -1;
+    private long installedVersion = -1;
 
     @Override public void onCreate(Bundle b) {
         super.onCreate(b);
@@ -106,7 +110,7 @@ public class SkkInstallerActivity extends Activity {
             try {
                 File tmp = new File(getCacheDir(), "pending-" + System.currentTimeMillis() + ".apk");
                 copyUriWithProgress(sourceUri, tmp);
-                if (!validSkk(tmp)) throw new IOException("SKK dosyası geçerli bir Android APK yapısı değil.");
+                if (!validSkk(tmp)) throw new IOException("Bu dosya geçerli bir .skk Android paketi değil.");
                 apkFile = tmp;
                 readTargetAppInfo(tmp);
                 runOnUiThread(this::showInstallQuestion);
@@ -145,9 +149,26 @@ public class SkkInstallerActivity extends Activity {
 
     private void readTargetAppInfo(File f) {
         PackageManager pm = getPackageManager();
-        PackageInfo pi = pm.getPackageArchiveInfo(f.getAbsolutePath(),
-                PackageManager.GET_META_DATA);
+        int flags = PackageManager.GET_META_DATA;
+        if (Build.VERSION.SDK_INT >= 28) flags |= PackageManager.GET_SIGNING_CERTIFICATES;
+        PackageInfo pi = pm.getPackageArchiveInfo(f.getAbsolutePath(), flags);
         if (pi == null || pi.applicationInfo == null) return;
+        targetPackage = pi.packageName;
+        incomingVersion = Build.VERSION.SDK_INT >= 28 ? pi.getLongVersionCode() : pi.versionCode;
+        try {
+            PackageInfo installed = pm.getPackageInfo(targetPackage, flags);
+            installedVersion = Build.VERSION.SDK_INT >= 28 ? installed.getLongVersionCode() : installed.versionCode;
+            updateMode = true;
+            if (incomingVersion <= installedVersion) {
+                throw new IllegalStateException("Bu paket kurulu sürümden yeni değil.");
+            }
+            if (!sameSigner(pi, installed)) {
+                throw new IllegalStateException("Güncelleme reddedildi: mevcut uygulamanın imzası ile .skk paketi aynı değil.");
+            }
+        } catch (PackageManager.NameNotFoundException e) {
+            updateMode = false;
+            installedVersion = -1;
+        }
         ApplicationInfo ai = pi.applicationInfo;
         ai.sourceDir = f.getAbsolutePath();
         ai.publicSourceDir = f.getAbsolutePath();
@@ -163,6 +184,8 @@ public class SkkInstallerActivity extends Activity {
     }
 
     private boolean validSkk(File f) throws Exception {
+        String displayName = sourceDisplayName();
+        if (displayName == null || !displayName.toLowerCase(Locale.ROOT).endsWith(".skk")) return false;
         if (!f.isFile() || f.length() < 1024) return false;
         try (ZipFile z = new ZipFile(f)) {
             ZipEntry manifest = z.getEntry("AndroidManifest.xml");
@@ -172,8 +195,36 @@ public class SkkInstallerActivity extends Activity {
                 String n = en.nextElement().getName();
                 if (n.startsWith("classes") && n.endsWith(".dex")) { dex = true; break; }
             }
-            return manifest != null && dex;
+            if (manifest == null || !dex) return false;
         }
+        PackageManager pm = getPackageManager();
+        int flags = PackageManager.GET_META_DATA;
+        if (Build.VERSION.SDK_INT >= 28) flags |= PackageManager.GET_SIGNING_CERTIFICATES;
+        PackageInfo pi = pm.getPackageArchiveInfo(f.getAbsolutePath(), flags);
+        return pi != null && pi.applicationInfo != null && pi.packageName != null && !pi.packageName.trim().isEmpty();
+    }
+
+    private String sourceDisplayName() {
+        try (android.database.Cursor c = getContentResolver().query(sourceUri,
+                new String[]{android.provider.OpenableColumns.DISPLAY_NAME}, null, null, null)) {
+            if (c != null && c.moveToFirst() && !c.isNull(0)) return c.getString(0);
+        } catch (Exception ignored) {}
+        String s = sourceUri == null ? null : sourceUri.getLastPathSegment();
+        return s;
+    }
+
+    private boolean sameSigner(PackageInfo incoming, PackageInfo installed) {
+        if (Build.VERSION.SDK_INT >= 28) {
+            SigningInfo a = incoming.signingInfo;
+            SigningInfo b = installed.signingInfo;
+            if (a == null || b == null) return false;
+            if (a.hasMultipleSigners() || b.hasMultipleSigners()) {
+                return java.util.Arrays.equals(a.getApkContentsSigners(), b.getApkContentsSigners());
+            }
+            return a.hasSameSigner(b);
+        }
+        if (incoming.signatures == null || installed.signatures == null) return false;
+        return java.util.Arrays.equals(incoming.signatures, installed.signatures);
     }
 
     private void showInstallQuestion() {
@@ -182,7 +233,7 @@ public class SkkInstallerActivity extends Activity {
 
         LinearLayout root = base();
 
-        TextView sparkle = text("✦  Paket hazır  ✦", 15, Color.rgb(190,170,255));
+        TextView sparkle = text(updateMode ? "✦  Güncelleme hazır  ✦" : "✦  Paket hazır  ✦", 15, Color.rgb(190,170,255));
         root.addView(sparkle, new LinearLayout.LayoutParams(-1, dp(30)));
 
         appIconView = new ImageView(this);
@@ -193,7 +244,7 @@ public class SkkInstallerActivity extends Activity {
         appNameView = text(targetName, 19, Color.WHITE);
         root.addView(appNameView, new LinearLayout.LayoutParams(-1, dp(36)));
 
-        TextView message = text("Bu uygulamayı yüklemek istiyor musun?", 14, Color.LTGRAY);
+        TextView message = text(updateMode ? "Bu uygulamayı güncellemek istiyor musun?" : "Bu uygulamayı yüklemek istiyor musun?", 14, Color.LTGRAY);
         root.addView(message, new LinearLayout.LayoutParams(-1, dp(48)));
 
         LinearLayout buttons = new LinearLayout(this);
@@ -201,7 +252,7 @@ public class SkkInstallerActivity extends Activity {
         Button no = new Button(this);
         no.setText("Hayır");
         Button yes = new Button(this);
-        yes.setText("Evet");
+        yes.setText(updateMode ? "Güncelle" : "Evet");
         buttons.addView(no, new LinearLayout.LayoutParams(0, dp(46), 1));
         buttons.addView(yes, new LinearLayout.LayoutParams(0, dp(46), 1));
         root.addView(buttons, new LinearLayout.LayoutParams(-1, dp(52)));
@@ -223,7 +274,7 @@ public class SkkInstallerActivity extends Activity {
         }
 
         LinearLayout root = base();
-        TextView sparkle = text("✦  Kuruluyor  ✦", 15, Color.rgb(190,170,255));
+        TextView sparkle = text(updateMode ? "✦  Güncelleniyor  ✦" : "✦  Kuruluyor  ✦", 15, Color.rgb(190,170,255));
         root.addView(sparkle, new LinearLayout.LayoutParams(-1, dp(30)));
 
         ImageView icon = new ImageView(this);
@@ -234,7 +285,7 @@ public class SkkInstallerActivity extends Activity {
         TextView name = text(targetName, 19, Color.WHITE);
         root.addView(name, new LinearLayout.LayoutParams(-1, dp(36)));
 
-        TextView installing = text("Kurulum başlatılıyor...", 14, Color.LTGRAY);
+        TextView installing = text(updateMode ? "Güncelleme başlatılıyor..." : "Kurulum başlatılıyor...", 14, Color.LTGRAY);
         root.addView(installing, new LinearLayout.LayoutParams(-1, dp(32)));
 
         ProgressBar bar = new ProgressBar(this, null, android.R.attr.progressBarStyleHorizontal);
@@ -270,7 +321,7 @@ public class SkkInstallerActivity extends Activity {
             i.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
             i.putExtra(Intent.EXTRA_INSTALLER_PACKAGE_NAME, getPackageName());
             bar.setProgress(100);
-            installing.setText("Android kurulum ekranı açılıyor...");
+            installing.setText(updateMode ? "Android güncelleme ekranı açılıyor..." : "Android kurulum ekranı açılıyor...");
             startActivity(i);
         } catch (Exception e) {
             showError("Android kurulum ekranı açılamadı: " + e.getMessage());
