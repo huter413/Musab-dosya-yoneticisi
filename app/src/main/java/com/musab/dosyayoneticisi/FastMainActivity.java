@@ -102,23 +102,108 @@ public class FastMainActivity extends MainActivity {
 
     void openWithOptions(File f) {
         if (f == null) return;
+        String x = f.getName().toLowerCase(Locale.ROOT);
         ArrayList<String> labels = new ArrayList<>();
         ArrayList<Runnable> actions = new ArrayList<>();
+
+        if (isArchive(x)) {
+            labels.add("Musab Arşiv Görüntüleyici");
+            actions.add(() -> openArchiveViewer(f));
+        } else if (isXml(x)) {
+            labels.add("Musab XML Görüntüleyici");
+            actions.add(() -> openXmlViewer(f));
+            labels.add("Musab Text");
+            actions.add(() -> openTextViewer(f));
+        } else if (isText(x)) {
+            labels.add("Musab Text");
+            actions.add(() -> openTextViewer(f));
+            if (x.endsWith(".sxml")) {
+                labels.add("Musab XML Görüntüleyici");
+                actions.add(() -> openXmlViewer(f));
+            }
+        } else if (isImage(x)) {
+            labels.add("Musab Görsel Görüntüleyici");
+            actions.add(() -> openImageViewer(f));
+        } else if (isVideo(x)) {
+            labels.add("Musab Video Görüntüleyici");
+            actions.add(() -> openVideoViewer(f));
+        } else if (isAudio(x)) {
+            labels.add("Musab Ses Çalar");
+            actions.add(() -> openAudioPlayer(f));
+        }
+
         if (skkInstalled()) {
             labels.add("SKK Yükleyicisi");
             actions.add(() -> openWithSkk(f));
         }
+
+        labels.add("Android uygulamasıyla aç");
+        actions.add(() -> openExternalChooser(f));
+
         labels.add("APK derleme");
         actions.add(() -> openBuild(f));
         labels.add("JAR derleme");
         actions.add(() -> openBuild(f));
         labels.add("Derleme merkezi (sürüm / imza)");
         actions.add(() -> openBuild(f));
+
         new AlertDialog.Builder(this, AlertDialog.THEME_DEVICE_DEFAULT_DARK)
                 .setTitle("İle aç")
                 .setItems(labels.toArray(new String[0]), (d, which) -> actions.get(which).run())
                 .setNegativeButton("Kapat", null)
                 .show();
+    }
+
+    private boolean isXml(String x) {
+        return x.endsWith(".xml") || x.endsWith(".sxml");
+    }
+
+    private void openTextViewer(File f) {
+        Intent i = new Intent(this, MusabTextActivity.class);
+        i.putExtra("path", f.getAbsolutePath());
+        startActivity(i);
+    }
+
+    private void openXmlViewer(File f) {
+        Intent i = new Intent(this, MusabXmlViewerActivity.class);
+        i.putExtra("path", f.getAbsolutePath());
+        startActivity(i);
+    }
+
+    private void openImageViewer(File f) {
+        Intent i = new Intent(this, MusabImageViewerActivity.class);
+        i.putExtra("path", f.getAbsolutePath());
+        startActivity(i);
+    }
+
+    private void openVideoViewer(File f) {
+        Intent i = new Intent(this, MusabVideoViewerActivity.class);
+        i.putExtra("path", f.getAbsolutePath());
+        startActivity(i);
+    }
+
+    private void openAudioPlayer(File f) {
+        Intent i = new Intent(this, MusabAudioPlayerActivity.class);
+        i.putExtra("path", f.getAbsolutePath());
+        startActivity(i);
+    }
+
+    private void openArchiveViewer(File f) {
+        Intent i = new Intent(this, MusabArchiveViewerActivity.class);
+        i.putExtra("path", f.getAbsolutePath());
+        startActivity(i);
+    }
+
+    private void openExternalChooser(File f) {
+        try {
+            Uri u = FileProvider.getUriForFile(this, getPackageName() + ".fileprovider", f);
+            Intent external = new Intent(Intent.ACTION_VIEW);
+            external.setDataAndType(u, getMime(f.getName().toLowerCase(Locale.ROOT)));
+            external.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION | Intent.FLAG_GRANT_WRITE_URI_PERMISSION);
+            startActivity(Intent.createChooser(external, "Android uygulamasıyla aç"));
+        } catch (Exception e) {
+            toast("Uygulama bulunamadı: " + e.getMessage());
+        }
     }
 
     @Override

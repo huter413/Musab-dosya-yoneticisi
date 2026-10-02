@@ -9,6 +9,7 @@
  <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
  <application android:theme="@style/AppTheme" android:label="MusabDosya Yöneticisi" android:icon="@drawable/ic_launcher" android:requestLegacyExternalStorage="true" android:usesCleartextTraffic="false">
   <activity android:name=".MusabTextActivity" android:exported="false"/>
+  <activity android:name=".MusabXmlViewerActivity" android:exported="false"/>
   <activity android:name=".MusabImageViewerActivity" android:exported="false"/>
   <activity android:name=".MusabVideoViewerActivity" android:exported="false"/>
   <activity android:name=".MusabAudioPlayerActivity" android:exported="false"/>
