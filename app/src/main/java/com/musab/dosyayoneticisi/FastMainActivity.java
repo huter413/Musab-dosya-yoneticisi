@@ -221,8 +221,12 @@ public class FastMainActivity extends MainActivity {
     @Override
     protected void onResume() {
         super.onResume();
-        // /storage/emulated/0 is directly browsable when the app already has
-        // broad file access; do not force-open Settings merely to enter root.
+        // Önce gerçek kök erişimini dene. /storage/emulated/0 listelenebiliyorsa
+        // Ayarlar ekranını zorla açma; doğrudan köke gir.
+        if (canBrowseStorageRoot()) {
+            permissionHandler.postDelayed(this::maybeRequestNotifications, 500);
+            return;
+        }
         if (Build.VERSION.SDK_INT >= 30 && !android.os.Environment.isExternalStorageManager()) {
             if (!storageSettingsOpened) {
                 storageSettingsOpened = true;
@@ -233,8 +237,24 @@ public class FastMainActivity extends MainActivity {
         permissionHandler.postDelayed(this::maybeRequestNotifications, 500);
     }
 
+    private boolean canBrowseStorageRoot() {
+        try {
+            File rootDir = android.os.Environment.getExternalStorageDirectory();
+            return rootDir != null && rootDir.isDirectory() && rootDir.canRead()
+                    && rootDir.listFiles() != null;
+        } catch (Exception e) {
+            return false;
+        }
+    }
+
     @Override
     void requestStorageAccess() {
+        // Kök zaten okunabiliyorsa hiçbir izin ekranı açma.
+        if (canBrowseStorageRoot()) {
+            current = android.os.Environment.getExternalStorageDirectory();
+            if (root != null && list != null) refresh();
+            return;
+        }
         if (Build.VERSION.SDK_INT >= 30 && !android.os.Environment.isExternalStorageManager()) {
             if (!storageSettingsOpened) {
                 storageSettingsOpened = true;
