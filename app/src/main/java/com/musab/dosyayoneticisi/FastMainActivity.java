@@ -221,6 +221,8 @@ public class FastMainActivity extends MainActivity {
     @Override
     protected void onResume() {
         super.onResume();
+        // /storage/emulated/0 is directly browsable when the app already has
+        // broad file access; do not force-open Settings merely to enter root.
         if (Build.VERSION.SDK_INT >= 30 && !android.os.Environment.isExternalStorageManager()) {
             if (!storageSettingsOpened) {
                 storageSettingsOpened = true;
