@@ -2,10 +2,16 @@ name: Musab Remote Project Build
 on:
   push:
     branches:
+      - "main"
       - "musab-build-*"
     paths:
+      - "app/**"
+      - "build.gradle.kts"
+      - "settings.gradle.kts"
+      - "gradle.properties"
       - "build-input/**/source.zip"
       - "build-input/**/source.jar"
+      - ".github/workflows/remote-build.yml"
 jobs:
   build-project:
     runs-on: ubuntu-latest
