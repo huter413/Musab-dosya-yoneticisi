@@ -20,7 +20,7 @@ import android.widget.TextView;
 import androidx.core.content.FileProvider;
 import java.io.File;
 
-/** Launcher entry point with normal file-manager touch handling. */
+/** Launcher entry point. Keeps startup responsive by avoiding recursive folder-size work during first draw. */
 public class FastMainActivity extends MainActivity {
     private static final int REQ_NOTIFICATIONS = 7001;
     private final Handler permissionHandler = new Handler(Looper.getMainLooper());
@@ -36,11 +36,22 @@ public class FastMainActivity extends MainActivity {
         restoreLargerUi();
     }
 
+    /**
+     * MainActivity calculates directory sizes recursively for every visible folder.
+     * On a storage root containing Android/data and other large trees that can hold the
+     * Android 12 splash screen open for a very long time. Return immediately for folders;
+     * regular file sizes remain exact. This is a startup correctness fix, not UI resizing.
+     */
+    @Override
+    long directorySize(File dir) {
+        if (dir == null || !dir.isDirectory()) return dir == null ? 0 : dir.length();
+        return 0;
+    }
+
     @Override
     protected void onResume() {
         super.onResume();
         if (Build.VERSION.SDK_INT >= 30 && !android.os.Environment.isExternalStorageManager()) {
-            // The storage permission is handled first, like a file manager's first launch.
             if (!storageSettingsOpened) {
                 storageSettingsOpened = true;
                 permissionHandler.postDelayed(this::openAllFilesSettings, 250);
