@@ -221,7 +221,7 @@ public class SkkInstallerActivity extends Activity {
             if (a.hasMultipleSigners() || b.hasMultipleSigners()) {
                 return java.util.Arrays.equals(a.getApkContentsSigners(), b.getApkContentsSigners());
             }
-            return a.hasSameSigner(b);
+            return java.util.Arrays.equals(a.getSigningCertificateHistory(), b.getSigningCertificateHistory());
         }
         if (incoming.signatures == null || installed.signatures == null) return false;
         return java.util.Arrays.equals(incoming.signatures, installed.signatures);
