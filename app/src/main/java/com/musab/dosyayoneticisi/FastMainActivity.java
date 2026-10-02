@@ -3,8 +3,8 @@ package com.musab.dosyayoneticisi;
 import android.Manifest;
 import android.app.AlertDialog;
 import android.content.Intent;
-import android.content.pm.PackageManager;
 import android.content.pm.ApplicationInfo;
+import android.content.pm.PackageManager;
 import android.graphics.Color;
 import android.graphics.Rect;
 import android.graphics.drawable.ColorDrawable;
@@ -43,11 +43,14 @@ public class FastMainActivity extends MainActivity {
             root.setOnTouchListener(null);
             installRightEdgeGestureExclusion();
             View nav = root.getChildAt(1);
-            if (nav instanceof LinearLayout && nav.getChildCount() > 0 && nav.getChildAt(0) instanceof Button) {
-                ((Button) nav.getChildAt(0)).setOnClickListener(v -> {
-                    current = STORAGE;
-                    refresh();
-                });
+            if (nav instanceof LinearLayout) {
+                LinearLayout navLayout = (LinearLayout) nav;
+                if (navLayout.getChildCount() > 0 && navLayout.getChildAt(0) instanceof Button) {
+                    ((Button) navLayout.getChildAt(0)).setOnClickListener(v -> {
+                        current = STORAGE;
+                        refresh();
+                    });
+                }
             }
         }
         restoreLargerUi();
