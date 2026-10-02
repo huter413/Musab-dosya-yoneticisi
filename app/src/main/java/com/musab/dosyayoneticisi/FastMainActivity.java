@@ -353,33 +353,28 @@ public class FastMainActivity extends MainActivity {
     void openFile(File f) {
         if (f == null) return;
         String x = f.getName().toLowerCase(Locale.ROOT);
+
+        // Özel paket/arşiv dosyaları kendi Musab Activity'lerine gider.
         if (isArchive(x) || isSkk(x)) {
             super.openFile(f);
             return;
         }
-        try {
-            Uri u = FileProvider.getUriForFile(this, getPackageName() + ".fileprovider", f);
-            String mime = getMime(x);
-            Intent external = new Intent(Intent.ACTION_VIEW);
-            external.setDataAndType(u, mime);
-            external.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
-            Intent internal = null;
-            if (isText(x)) internal = new Intent(this, MusabTextActivity.class);
-            else if (isImage(x)) internal = new Intent(this, MusabImageViewerActivity.class);
-            else if (isVideo(x)) internal = new Intent(this, MusabVideoViewerActivity.class);
-            else if (isAudio(x)) internal = new Intent(this, MusabAudioPlayerActivity.class);
-            if (internal != null) {
-                internal.putExtra("path", f.getAbsolutePath());
-                internal.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
-                Intent chooser = Intent.createChooser(external, "Bununla aç");
-                chooser.putExtra(Intent.EXTRA_INITIAL_INTENTS, new Intent[]{internal});
-                startActivity(chooser);
-            } else {
-                startActivity(Intent.createChooser(external, "Bununla aç"));
-            }
-        } catch (Exception e) {
-            toast("Dosya açılamadı: " + e.getMessage());
+
+        // Normal dosyalar için de Android'in harici chooser'ına düşme:
+        // her dosya önce uygun Musab Activity'sinde açılır.
+        Intent internal;
+        if (isImage(x)) {
+            internal = new Intent(this, MusabImageViewerActivity.class);
+        } else if (isVideo(x)) {
+            internal = new Intent(this, MusabVideoViewerActivity.class);
+        } else if (isAudio(x)) {
+            internal = new Intent(this, MusabAudioPlayerActivity.class);
+        } else {
+            // Metin, XML ve tanınmayan dosyalar için ortak düzenleyici.
+            internal = new Intent(this, MusabTextActivity.class);
         }
+        internal.putExtra("path", f.getAbsolutePath());
+        startActivity(internal);
     }
 
     @Override
