@@ -41,6 +41,13 @@ public class FastMainActivity extends MainActivity {
         if (root != null) {
             root.setOnTouchListener(null);
             installRightEdgeGestureExclusion();
+            View nav = root.getChildAt(1);
+            if (nav instanceof LinearLayout && nav.getChildCount() > 0 && nav.getChildAt(0) instanceof Button) {
+                ((Button) nav.getChildAt(0)).setOnClickListener(v -> {
+                    current = STORAGE;
+                    refresh();
+                });
+            }
         }
         restoreLargerUi();
     }
@@ -54,12 +61,19 @@ public class FastMainActivity extends MainActivity {
             float dx = event.getRawX() - gestureDownX;
             float dy = event.getRawY() - gestureDownY;
             if (dx > 120f && Math.abs(dx) > Math.abs(dy) * 1.25f) {
-                // Right swipe leaves the current folder, never the application.
-                if (current != null && current.getParentFile() != null) goParent();
+                if (current != null && !isStorageRoot()) goParent();
                 return true;
             }
         }
         return super.dispatchTouchEvent(event);
+    }
+
+    private boolean isStorageRoot() {
+        try {
+            return current != null && current.getCanonicalFile().equals(STORAGE.getCanonicalFile());
+        } catch (Exception e) {
+            return current != null && current.equals(STORAGE);
+        }
     }
 
     private void installRightEdgeGestureExclusion() {
@@ -78,8 +92,18 @@ public class FastMainActivity extends MainActivity {
 
     @Override
     public void onBackPressed() {
-        if (current != null && current.getParentFile() != null) goParent();
+        if (current != null && !isStorageRoot()) goParent();
         else super.onBackPressed();
+    }
+
+    @Override
+    void navigate(String p) {
+        if (p == null || p.trim().isEmpty() || p.trim().equals("/")) {
+            current = STORAGE;
+            refresh();
+            return;
+        }
+        super.navigate(p);
     }
 
     @Override
