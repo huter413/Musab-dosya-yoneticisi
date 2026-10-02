@@ -82,10 +82,30 @@ jobs:
       - name: Build Android APK
         if: steps.cfg.outputs.type == 'APK'
         run: |
-          if [ -f workspace/gradlew ]; then chmod +x workspace/gradlew; (cd workspace && ./gradlew --no-daemon assembleManagerDebug assembleSkkLoaderDebug); else (cd workspace && gradle --no-daemon assembleManagerDebug assembleSkkLoaderDebug); fi
-          mapfile -t APK_FILES < <(find workspace -type f -path '*/build/outputs/apk/*/*.apk' | sort)
-          [ "${#APK_FILES[@]}" -ge 2 ] || { echo "İki APK bekleniyordu, bulunan: ${#APK_FILES[@]}"; printf '%s\n' "${APK_FILES[@]}"; exit 20; }
-          MANAGER_APK=$(printf '%s\n' "${APK_FILES[@]}" | grep -Ei '/(manager|app).*(debug|release).*\.apk
+          if [ -f workspace/gradlew ]; then
+            chmod +x workspace/gradlew
+            (cd workspace && ./gradlew --no-daemon assembleManagerDebug assembleSkkLoaderDebug)
+          else
+            (cd workspace && gradle --no-daemon assembleManagerDebug assembleSkkLoaderDebug)
+          fi
+          APK_COUNT=$(find workspace -type f -path '*/build/outputs/apk/*/*.apk' | wc -l)
+          echo "Bulunan APK sayısı: $APK_COUNT"
+          [ "$APK_COUNT" -ge 2 ] || { echo "İki APK bekleniyordu"; find workspace -type f -path '*/build/outputs/apk/*/*.apk' -print; exit 20; }
+          MANAGER_APK=$(find workspace -type f -path '*/build/outputs/apk/*/*.apk' | grep -Ei '/(manager|app).*(debug|release).*\.apk$' | head -n1 || true)
+          SKK_APK=$(find workspace -type f -path '*/build/outputs/apk/*/*.apk' | grep -Ei '/.*skk.*(debug|release).*\.apk$' | head -n1 || true)
+          if [ -z "$MANAGER_APK" ]; then
+            MANAGER_APK=$(find workspace -type f -path '*/build/outputs/apk/*/*.apk' | grep -vi skk | head -n1 || true)
+          fi
+          if [ -z "$SKK_APK" ]; then
+            SKK_APK=$(find workspace -type f -path '*/build/outputs/apk/*/*.apk' | grep -i skk | head -n1 || true)
+          fi
+          [ -n "$MANAGER_APK" ] || { echo "Musab Dosya Yöneticisi APK bulunamadı"; exit 21; }
+          [ -n "$SKK_APK" ] || { echo "SKK Installer APK bulunamadı"; exit 22; }
+          [ "$MANAGER_APK" != "$SKK_APK" ] || { echo "Manager ve SKK aynı APK seçildi"; exit 23; }
+          cp "$MANAGER_APK" dist/musab-dosya-yoneticisi.apk
+          cp "$SKK_APK" dist/skk-installer.apk
+          echo "Manager: $MANAGER_APK"
+          echo "SKK: $SKK_APK"
       - name: Sign APK
         if: steps.cfg.outputs.type == 'APK' && steps.cfg.outputs.sign == 'true'
         run: |
