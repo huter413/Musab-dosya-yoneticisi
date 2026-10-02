@@ -64,8 +64,11 @@ jobs:
           if [ -n "${{ steps.cfg.outputs.source }}" ]; then
             unzip -q "${{ steps.cfg.outputs.source }}" -d workspace
           else
-            shopt -s dotglob
-            cp -a . workspace/
+            shopt -s dotglob nullglob
+            for ITEM in *; do
+              [ "$ITEM" = "workspace" ] && continue
+              cp -a "$ITEM" workspace/
+            done
             rm -rf workspace/.git workspace/workspace
           fi
           if [ "$(find workspace -mindepth 1 -maxdepth 1 -type d | wc -l)" -eq 1 ]; then
