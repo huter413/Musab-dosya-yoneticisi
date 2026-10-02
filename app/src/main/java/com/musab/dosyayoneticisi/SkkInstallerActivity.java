@@ -34,7 +34,13 @@ public class SkkInstallerActivity extends Activity {
         sourceUri = getIntent() == null ? null : getIntent().getData();
         configureSmallWindow();
         showLoading();
-        new Handler(Looper.getMainLooper()).postDelayed(this::preparePackage, 180);
+        if (getIntent() != null && getIntent().hasExtra("installResult")) {
+            boolean ok = "success".equals(getIntent().getStringExtra("installResult"));
+            if (ok) showError("SKK başarıyla kuruldu.");
+            else showError("SKK kurulumu başarısız: " + getIntent().getStringExtra("installMessage"));
+        } else {
+            new Handler(Looper.getMainLooper()).postDelayed(this::preparePackage, 180);
+        }
     }
 
     private void configureSmallWindow() {
