@@ -14,15 +14,9 @@ import android.os.Looper;
 import android.provider.Settings;
 import androidx.core.content.FileProvider;
 import java.io.File;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 
-/** Launcher entry point with non-blocking startup, first-run permissions and a file chooser. */
+/** Launcher entry point. Keeps the normal MainActivity behavior without altering touch handling. */
 public class FastMainActivity extends MainActivity {
-    private static final ExecutorService SIZE_EXECUTOR = Executors.newSingleThreadExecutor();
-    private static final ConcurrentHashMap<String, Long> SIZE_CACHE = new ConcurrentHashMap<>();
-    private static final ConcurrentHashMap<String, Boolean> SIZE_PENDING = new ConcurrentHashMap<>();
     private static final int REQ_NOTIFICATIONS = 7001;
     private final Handler permissionHandler = new Handler(Looper.getMainLooper());
     private boolean storageDialogShown;
@@ -80,26 +74,6 @@ public class FastMainActivity extends MainActivity {
                 toast("Dosya erişimi ekranı açılamadı");
             }
         }
-    }
-
-    @Override
-    long directorySize(File dir) {
-        final String key;
-        try {
-            key = dir.getCanonicalPath();
-        } catch (Exception e) {
-            return 0L;
-        }
-        Long cached = SIZE_CACHE.get(key);
-        if (cached != null) return cached;
-        if (SIZE_PENDING.putIfAbsent(key, Boolean.TRUE) == null) {
-            SIZE_EXECUTOR.execute(() -> {
-                long size = super.directorySize(dir);
-                SIZE_CACHE.put(key, size);
-                SIZE_PENDING.remove(key);
-            });
-        }
-        return 0L;
     }
 
     @Override
