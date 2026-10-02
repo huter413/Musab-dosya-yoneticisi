@@ -378,12 +378,34 @@ public class SkkInstallerActivity extends Activity {
     }
 
     private void showError(String message) {
-        new AlertDialog.Builder(this)
-            .setTitle("SKK yüklenemedi")
-            .setMessage(message)
-            .setPositiveButton("Kapat", (d,w) -> finish())
-            .setOnCancelListener(d -> finish())
-            .show();
+        // SKK kurulum sonucu da Musab'ın kendi arayüzünde gösterilir.
+        // Android'in ACTION_INSTALL_PACKAGE / sistem yükleyici ekranı açılmaz.
+        LinearLayout root = base();
+
+        TextView header = text("✦  Musab SKK Yükleyici  ✦", 15, Color.rgb(190,170,255));
+        root.addView(header, new LinearLayout.LayoutParams(-1, dp(34)));
+
+        ImageView icon = new ImageView(this);
+        if (targetIcon != null) icon.setImageDrawable(targetIcon);
+        else icon.setImageResource(android.R.drawable.sym_def_app_icon);
+        root.addView(icon, new LinearLayout.LayoutParams(dp(64), dp(64)));
+
+        TextView title = text(targetName, 19, Color.WHITE);
+        root.addView(title, new LinearLayout.LayoutParams(-1, dp(38)));
+
+        TextView msg = text(message, 14, Color.LTGRAY);
+        root.addView(msg, new LinearLayout.LayoutParams(-1, dp(72)));
+
+        Button close = new Button(this);
+        close.setText("Kapat");
+        close.setOnClickListener(v -> {
+            deleteTemp();
+            finish();
+        });
+        root.addView(close, new LinearLayout.LayoutParams(-1, dp(48)));
+
+        setContentView(root);
+        resizeWindow();
     }
 
     @Override protected void onDestroy() {
