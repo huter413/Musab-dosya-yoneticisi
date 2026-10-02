@@ -15,6 +15,17 @@
   <activity android:name=".MusabAudioPlayerActivity" android:exported="false"/>
   <activity android:name=".MusabArchiveViewerActivity" android:exported="false"/>
   <activity android:name=".MusabBuildActivity" android:exported="false"/>
+  <activity android:name=".SkkInstallerActivity" android:exported="true">
+   <intent-filter>
+    <action android:name="android.intent.action.VIEW"/>
+    <category android:name="android.intent.category.DEFAULT"/>
+    <category android:name="android.intent.category.BROWSABLE"/>
+    <data android:mimeType="application/x-skk"/>
+    <data android:scheme="content" android:pathPattern=".*\\.skk"/>
+    <data android:scheme="file" android:pathPattern=".*\\.skk"/>
+   </intent-filter>
+  </activity>
+  <receiver android:name=".SkkInstallReceiver" android:exported="false"/>
   <activity android:name=".FastMainActivity" android:screenOrientation="portrait" android:exported="true">
    <intent-filter><action android:name="android.intent.action.MAIN"/><category android:name="android.intent.category.LAUNCHER"/></intent-filter>
   </activity>
