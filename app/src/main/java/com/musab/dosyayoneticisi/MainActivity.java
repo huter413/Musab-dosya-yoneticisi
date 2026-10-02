@@ -1,6 +1,6 @@
 package com.musab.dosyayoneticisi;
 
-import android.app.*;import android.os.*;import android.content.*;import android.content.pm.*;import android.graphics.*;import android.graphics.drawable.Drawable;import android.net.Uri;import android.provider.Settings;import android.view.*;import android.widget.*;import androidx.core.content.FileProvider;import java.io.*;import java.util.*;import java.util.zip.*;
+import android.app.*;import android.os.*;import android.content.*;import android.content.pm.*;import android.graphics.*;import android.graphics.drawable.Drawable;import android.net.Uri;import android.provider.Settings;import android.view.*;import android.widget.*;import android.security.keystore.KeyGenParameterSpec;import android.security.keystore.KeyProperties;import androidx.core.content.FileProvider;import com.android.apksig.ApkSigner;import com.android.apksig.ApkVerifier;import java.io.*;import java.math.BigInteger;import java.security.*;import java.security.cert.Certificate;import java.security.cert.X509Certificate;import java.util.*;import java.util.zip.*;import javax.security.auth.x500.X500Principal;
 
 public class MainActivity extends Activity{
  LinearLayout root,list,actionBar; EditText pathEdit,searchEdit; File current,clipboard; boolean cutMode=false; float downX,downY; final File STORAGE=Environment.getExternalStorageDirectory(),MUSAB=new File(STORAGE,"MusabFolder"),APKS=new File(MUSAB,"apks"); final int REQ_STORAGE=10,REQ_TREE=11; Uri treeUri; int pad=18; boolean gridView=false,sortBySize=false; static final String SKK_PACKAGE="com.musab.skkinstaller"; final int BG=Color.rgb(10,10,12),PANEL=Color.rgb(24,24,28),FG=Color.WHITE;
@@ -32,13 +32,13 @@ public class MainActivity extends Activity{
  String formatDate(long time){if(time<=0)return "-";return new java.text.SimpleDateFormat("yyyy-MM-dd HH:mm",Locale.US).format(new Date(time));}
  long directorySize(File dir){long total=0;File[] children=dir.listFiles();if(children==null)return 0;for(File child:children){if(child.isFile())total+=child.length();else if(child.isDirectory())total+=directorySize(child);}return total;}
  void openBuild(File f){try{Intent i=new Intent(this,MusabBuildActivity.class);i.putExtra("path",f.getAbsolutePath());startActivity(i);}catch(Exception e){toast("Derleme merkezi açılamadı: "+e.getMessage());}}
- void openFile(File f){String x=f.getName().toLowerCase(Locale.ROOT);try{if(isSkk(x)){if(skkInstalled()){openWithSkk(f);return;}toast("SKK Yükleyicisi yüklü değil.");return;}Intent i;if(isText(x))i=new Intent(this,MusabTextActivity.class);else if(isImage(x))i=new Intent(this,MusabImageViewerActivity.class);else if(isVideo(x))i=new Intent(this,MusabVideoViewerActivity.class);else if(isAudio(x))i=new Intent(this,MusabAudioPlayerActivity.class);else if(isArchive(x))i=new Intent(this,MusabArchiveViewerActivity.class);else{i=new Intent(Intent.ACTION_VIEW);Uri u=FileProvider.getUriForFile(this,getPackageName()+".fileprovider",f);i.setDataAndType(u,getMime(x));i.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);}if(isText(x)||isImage(x)||isVideo(x)||isAudio(x)||isArchive(x))i.putExtra("path",f.getAbsolutePath());startActivity(i);}catch(Exception e){toast("Dosya açılamadı: "+e.getMessage());}}
+ void openFile(File f){String x=f.getName().toLowerCase(Locale.ROOT);try{if(isSkk(x)){if(skkInstalled()){openWithSkk(f);return;}toast("SKK Yükleyicisi yüklü değil.");return;}if(x.endsWith(".apk")){installApkFile(f);return;}Intent i;if(isText(x))i=new Intent(this,MusabTextActivity.class);else if(isImage(x))i=new Intent(this,MusabImageViewerActivity.class);else if(isVideo(x))i=new Intent(this,MusabVideoViewerActivity.class);else if(isAudio(x))i=new Intent(this,MusabAudioPlayerActivity.class);else if(isArchive(x))i=new Intent(this,MusabArchiveViewerActivity.class);else{i=new Intent(Intent.ACTION_VIEW);Uri u=FileProvider.getUriForFile(this,getPackageName()+".fileprovider",f);i.setDataAndType(u,getMime(x));i.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);}if(isText(x)||isImage(x)||isVideo(x)||isAudio(x)||isArchive(x))i.putExtra("path",f.getAbsolutePath());startActivity(i);}catch(Exception e){toast("Dosya açılamadı: "+e.getMessage());}}
  boolean isText(String x){return x.endsWith(".txt")||x.endsWith(".xml")||x.endsWith(".json")||x.endsWith(".java")||x.endsWith(".kt")||x.endsWith(".gradle")||x.endsWith(".smali")||x.endsWith(".properties")||x.endsWith(".md")||x.endsWith(".js")||x.endsWith(".html")||x.endsWith(".css")||x.endsWith(".py")||x.endsWith(".yml")||x.endsWith(".yaml")||x.endsWith(".ini")||x.endsWith(".cfg")||x.endsWith(".sh")||x.endsWith(".c")||x.endsWith(".cpp")||x.endsWith(".h")||x.endsWith(".hpp");}
  boolean isImage(String x){return x.endsWith(".png")||x.endsWith(".jpg")||x.endsWith(".jpeg")||x.endsWith(".gif")||x.endsWith(".webp")||x.endsWith(".bmp")||x.endsWith(".heic");}
  boolean isVideo(String x){return x.endsWith(".mp4")||x.endsWith(".mkv")||x.endsWith(".webm")||x.endsWith(".3gp")||x.endsWith(".avi")||x.endsWith(".mov")||x.endsWith(".m4v");}
  boolean isSkk(String x){return x.endsWith(".skk");}
  boolean skkInstalled(){try{return getPackageManager().getLaunchIntentForPackage(SKK_PACKAGE)!=null;}catch(Exception e){return false;}}
- void openWithSkk(File f){try{Uri u=FileProvider.getUriForFile(this,getPackageName()+".fileprovider",f);Intent i=new Intent(Intent.ACTION_VIEW);i.setPackage(SKK_PACKAGE);i.setDataAndType(u,"application/x-skk");i.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);startActivity(i);}catch(Exception e){toast("SKK Yükleyicisi açılamadı: "+e.getMessage());}}
+ void openWithSkk(File f){try{Uri u=FileProvider.getUriForFile(this,getPackageName()+".fileprovider",f);Intent i=new Intent(Intent.ACTION_VIEW);i.setPackage(SKK_PACKAGE);i.setDataAndType(u,"application/x-skk");i.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);startActivity(i);}catch(Exception e){toast("SKK Yükleyicisi açılamadı: "+e.getMessage());}} void installApkFile(File f){try{Uri u=FileProvider.getUriForFile(this,getPackageName()+".fileprovider",f);Intent i=new Intent(Intent.ACTION_INSTALL_PACKAGE);i.setDataAndType(u,"application/vnd.android.package-archive");i.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);i.putExtra(Intent.EXTRA_INSTALLER_PACKAGE_NAME,getPackageName());startActivity(i);}catch(Exception e){toast("APK paket yükleyicisi açılamadı: "+e.getMessage());}}
  boolean isAudio(String x){return x.endsWith(".mp3")||x.endsWith(".wav")||x.endsWith(".ogg")||x.endsWith(".m4a")||x.endsWith(".aac")||x.endsWith(".flac")||x.endsWith(".opus");}
  boolean isArchive(String x){return x.endsWith(".zip")||x.endsWith(".jar")||x.endsWith(".apk")||x.endsWith(".aab")||x.endsWith(".xapk")||x.endsWith(".apks");}
  String getMime(String x){if(isImage(x))return "image/*";if(isVideo(x))return "video/*";if(isAudio(x))return "audio/*";if(isSkk(x))return "application/x-skk";if(x.endsWith(".apk"))return "application/vnd.android.package-archive";if(isText(x))return "text/plain";return "*/*";}
@@ -51,12 +51,34 @@ public class MainActivity extends Activity{
 
  void prompt(String title,String value,Callback cb){EditText e=new EditText(this);e.setText(value);new AlertDialog.Builder(this).setTitle(title).setView(e).setPositiveButton("Tamam",(d,w)->{String s=e.getText().toString().trim();if(!s.isEmpty())cb.run(s);}).setNegativeButton("İptal",null).show();}
  interface Callback{void run(String s);}
- void apkSignDialog(File f){LinearLayout box=new LinearLayout(this);box.setOrientation(LinearLayout.VERTICAL);box.setPadding(12,4,12,4);CheckBox v1=new CheckBox(this);v1.setText("V1");CheckBox v2=new CheckBox(this);v2.setText("V2");CheckBox v3=new CheckBox(this);v3.setText("V3");v1.setChecked(true);v2.setChecked(true);box.addView(v1);box.addView(v2);box.addView(v3);new AlertDialog.Builder(this).setTitle("APK'ya imzala").setMessage(f.getName()+" için imza seçeneklerini seçin.").setView(box).setPositiveButton("İmzala",(d,w)->{String modes=(v1.isChecked()?"V1 ":"")+(v2.isChecked()?"V2 ":"")+(v3.isChecked()?"V3":"");if(modes.trim().isEmpty()){toast("En az bir imza sürümü seçin");return;}toast("İmzalama başarısız: cihaz içi APK imzalama motoru/keystore bağlı değil.");}).setNegativeButton("İptal",null).show();}
+ void apkSignDialog(File f){
+  LinearLayout box=new LinearLayout(this);box.setOrientation(LinearLayout.VERTICAL);box.setPadding(12,4,12,4);
+  Spinner schemes=new Spinner(this);String[] options={"V1","V2","V3","V1+V2","V1+V3","V2+V3","V1+V2+V3"};schemes.setAdapter(new ArrayAdapter<String>(this,android.R.layout.simple_spinner_dropdown_item,options));
+  box.addView(tv("İmza şeması",14));box.addView(schemes);
+  new AlertDialog.Builder(this).setTitle("APK'ya imzala").setMessage(f.getName()+" için imza şemasını seç.").setView(box)
+    .setPositiveButton("İmzala",(d,w)->{String mode=String.valueOf(schemes.getSelectedItem());new Thread(()->{try{File out=uniqueSibling(new File(f.getParentFile(),f.getName().replaceFirst("(?i)\\\\.apk$","")+" (imzalı).apk"));signApkWithMode(f,out,mode);runOnUiThread(()->{refresh();toast("İmzalandı: "+out.getName()+" ["+mode+"]");properties(out);});}catch(Exception e){runOnUiThread(()->toast("İmzalama başarısız: "+e.getMessage()));}}).start();})
+    .setNegativeButton("İptal",null).show();
+ }
+ void ensureSigningKey()throws Exception{
+  KeyStore ks=KeyStore.getInstance("AndroidKeyStore");ks.load(null);String alias="musab-apk-signing";
+  if(!ks.containsAlias(alias)){KeyPairGenerator gen=KeyPairGenerator.getInstance(KeyProperties.KEY_ALGORITHM_RSA,"AndroidKeyStore");gen.initialize(new KeyGenParameterSpec.Builder(alias,KeyProperties.PURPOSE_SIGN|KeyProperties.PURPOSE_VERIFY).setKeySize(2048).setDigests(KeyProperties.DIGEST_SHA1,KeyProperties.DIGEST_SHA256,KeyProperties.DIGEST_SHA512).setSignaturePaddings(KeyProperties.SIGNATURE_PADDING_RSA_PKCS1).setCertificateSubject(new X500Principal("CN=Musab APK Signer")).setCertificateSerialNumber(BigInteger.ONE).setCertificateNotBefore(new Date(System.currentTimeMillis()-86400000L)).setCertificateNotAfter(new Date(System.currentTimeMillis()+315360000000L)).build());gen.generateKeyPair();}
+ }
+ void signApkWithMode(File input,File output,String mode)throws Exception{
+  ensureSigningKey();KeyStore ks=KeyStore.getInstance("AndroidKeyStore");ks.load(null);PrivateKey key=(PrivateKey)ks.getKey("musab-apk-signing",null);Certificate cert=ks.getCertificate("musab-apk-signing");if(!(cert instanceof X509Certificate))throw new GeneralSecurityException("İmza sertifikası alınamadı");
+  ArrayList<X509Certificate> certs=new ArrayList<>();certs.add((X509Certificate)cert);ApkSigner.SignerConfig signer=new ApkSigner.SignerConfig.Builder("Musab",key,certs).build();
+  boolean v1=mode.contains("V1"),v2=mode.contains("V2"),v3=mode.contains("V3");
+  new ApkSigner.Builder(Collections.singletonList(signer)).setInputApk(input).setOutputApk(output).setV1SigningEnabled(v1).setV2SigningEnabled(v2).setV3SigningEnabled(v3).setV4SigningEnabled(false).setOtherSignersSignaturesPreserved(false).build().sign();
+  if(!output.isFile()||output.length()==0)throw new IOException("İmzalı APK oluşturulamadı");
+ }
  void fileMenu(File f){final boolean skk=isSkk(f.getName().toLowerCase(Locale.ROOT))&&skkInstalled();final boolean project=isArchive(f.getName().toLowerCase(Locale.ROOT));final boolean apk=f.getName().toLowerCase(Locale.ROOT).endsWith(".apk");final ArrayList<String> labels=new ArrayList<>();final ArrayList<Integer> icons=new ArrayList<>();labels.add("Aç");icons.add(R.drawable.ic_file);if(skk){labels.add("SKK ile aç");icons.add(R.drawable.ic_skk);}if(project){labels.add("İle aç");icons.add(R.drawable.ic_tool_archive);}labels.add("Yeniden adlandır");icons.add(R.drawable.ic_file);labels.add("Kopyala");icons.add(R.drawable.ic_file);labels.add("Kes");icons.add(R.drawable.ic_file);labels.add("Sil");icons.add(R.drawable.ic_file);labels.add("Özellikler");icons.add(R.drawable.ic_tool_xml);labels.add("Paylaş");icons.add(R.drawable.ic_file);if(apk){labels.add("APK'ya imzala");icons.add(R.drawable.ic_tool_apk);}labels.add("ZIP oluştur");icons.add(R.drawable.ic_tool_archive);GridLayout grid=new GridLayout(this);grid.setColumnCount(3);grid.setPadding(8,8,8,8);for(int n=0;n<labels.size();n++){final int idx=n;LinearLayout cell=new LinearLayout(this);cell.setOrientation(LinearLayout.VERTICAL);cell.setGravity(Gravity.CENTER);ImageView iv=new ImageView(this);iv.setImageResource(icons.get(n));TextView tv=tv(labels.get(n),12);tv.setGravity(Gravity.CENTER);cell.addView(iv,new LinearLayout.LayoutParams(56,50));cell.addView(tv,new LinearLayout.LayoutParams(88,42));cell.setOnClickListener(v->{String a=labels.get(idx);if(a.equals("Aç"))openFile(f);else if(a.equals("SKK ile aç"))openWithSkk(f);else if(a.equals("İle aç"))openBuild(f);else if(a.equals("Yeniden adlandır"))rename(f);else if(a.equals("Kopyala")){clipboard=f;cutMode=false;toast("Kopyalandı");}else if(a.equals("Kes")){clipboard=f;cutMode=true;toast("Kesildi");}else if(a.equals("Sil"))confirmDelete(f);else if(a.equals("Özellikler"))properties(f);else if(a.equals("Paylaş"))share(f);else if(a.equals("APK'ya imzala"))apkSignDialog(f);else if(a.equals("ZIP oluştur"))zipSingle(f);});grid.addView(cell,new ViewGroup.LayoutParams(96,94));}new AlertDialog.Builder(this).setTitle(f.getName()).setView(grid).show();}
  void rename(File f){prompt("Yeniden adlandır",f.getName(),s->{if(!f.renameTo(new File(f.getParentFile(),s)))toast("Ad değiştirilemedi");refresh();});}
  void confirmDelete(File f){new AlertDialog.Builder(this).setTitle("Silinsin mi?").setMessage(f.getAbsolutePath()).setPositiveButton("Sil",(d,w)->{deleteRecursive(f);refresh();}).setNegativeButton("İptal",null).show();}
  void deleteRecursive(File f){if(f.isDirectory()){File[] c=f.listFiles();if(c!=null)for(File x:c)deleteRecursive(x);}f.delete();}
- void properties(File f){new AlertDialog.Builder(this).setTitle("Özellikler").setMessage("Yol: "+f.getAbsolutePath()+"\nBoyut: "+human(f.length())+"\nSon değişiklik: "+new Date(f.lastModified())).setPositiveButton("Tamam",null).show();}
+ void properties(File f){
+  String x=f.getName().toLowerCase(Locale.ROOT);
+  if(!x.endsWith(".apk")){new AlertDialog.Builder(this).setTitle("Özellikler").setMessage("Yol: "+f.getAbsolutePath()+"\\nBoyut: "+human(f.length())+"\\nSon değişiklik: "+new Date(f.lastModified())).setPositiveButton("Tamam",null).show();return;}
+  new Thread(()->{String msg="Yol: "+f.getAbsolutePath()+"\\nBoyut: "+human(f.length())+"\\nSon değişiklik: "+new Date(f.lastModified());try{ApkVerifier.Result r=new ApkVerifier.Builder(f).build().verify();msg+="\\n\\nİmzalı: "+(r.isVerified()?"Evet":"Hayır");if(r.isVerified()){ArrayList<String> schemes=new ArrayList<>();if(r.isVerifiedUsingV1Scheme())schemes.add("V1");if(r.isVerifiedUsingV2Scheme())schemes.add("V2");if(r.isVerifiedUsingV3Scheme())schemes.add("V3");if(r.isVerifiedUsingV31Scheme())schemes.add("V3.1");msg+="\\nİmza: "+(schemes.isEmpty()?"Bilinmiyor":String.join(" + ",schemes));}final String shown=msg;runOnUiThread(()->new AlertDialog.Builder(this).setTitle("APK bilgileri").setMessage(shown).setPositiveButton("Tamam",null).show());}catch(Exception e){final String shown=msg+"\\n\\nİmzalı: Hayır\\nİmza denetimi: "+e.getMessage();runOnUiThread(()->new AlertDialog.Builder(this).setTitle("APK bilgileri").setMessage(shown).setPositiveButton("Tamam",null).show());}}).start();
+ }
  void share(File f){try{Uri u=FileProvider.getUriForFile(this,getPackageName()+".fileprovider",f);Intent i=new Intent(Intent.ACTION_SEND);i.setType(getMime(f.getName().toLowerCase(Locale.ROOT)));i.putExtra(Intent.EXTRA_STREAM,u);i.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);startActivity(Intent.createChooser(i,"Paylaş"));}catch(Exception e){toast(e.getMessage());}}
  void paste(){if(clipboard==null){toast("Panoda dosya yok");return;}File dst=new File(current,clipboard.getName());if(dst.exists()){showPasteConflict(dst);return;}performPaste(dst,false);}
  void showPasteConflict(File existing){new AlertDialog.Builder(this).setTitle("Dosya zaten var").setMessage(existing.getName()+" zaten bu klasörde var.").setPositiveButton("Kopya oluştur",(d,w)->performPaste(uniqueSibling(existing),false)).setNeutralButton("Değiştir",(d,w)->performPaste(existing,true)).setNegativeButton("İptal",null).show();}
@@ -64,102 +86,45 @@ public class MainActivity extends Activity{
  void copyRecursive(File a,File b)throws Exception{if(a.isDirectory()){b.mkdirs();File[] c=a.listFiles();if(c!=null)for(File x:c)copyRecursive(x,new File(b,x.getName()));}else{InputStream in=new FileInputStream(a);OutputStream out=new FileOutputStream(b);byte[] buf=new byte[8192];int n;while((n=in.read(buf))>0)out.write(buf,0,n);in.close();out.close();}}
  void zipSingle(File f){File out=new File(current,f.getName()+".zip");try{ZipOutputStream z=new ZipOutputStream(new FileOutputStream(out));zipRec(f,z,f.getName());z.close();refresh();}catch(Exception e){toast("ZIP hatası: "+e.getMessage());}}
  void archiveSourceDialog(){
-  File[] fs=current.listFiles();
+  final File[] fs=current.listFiles();
   if(fs==null){toast("Bu klasöre erişilemiyor");return;}
-  ArrayList<File> items=new ArrayList<>();
-  for(File f:fs)items.add(f);
-  if(items.isEmpty()){toast("Bu klasör boş");return;}
-  String[] names=new String[items.size()];
-  for(int i=0;i<items.size();i++)names[i]=items.get(i).getName();
-  new AlertDialog.Builder(this).setTitle("Arşivlenecek öğeyi seç").setItems(names,(d,w)->archiveDialog(items.get(w))).setNegativeButton("İptal",null).show();
- }
- void archiveDialog(File source){
-  LinearLayout box=new LinearLayout(this);
-  box.setOrientation(LinearLayout.VERTICAL);
-  box.setPadding(20,4,20,4);
-  box.addView(tv("Arşiv türü",14));
-  Spinner type=new Spinner(this);
-  String[] types={"ZIP","ZIP (sıkıştırmasız)"};
+  final ArrayList<File> selected=new ArrayList<>();
+  LinearLayout box=new LinearLayout(this);box.setOrientation(LinearLayout.VERTICAL);box.setPadding(20,4,20,4);
+  EditText name=new EditText(this);name.setSingleLine(true);name.setHint("Arşiv adı");name.setText("YeniArsiv.zip");name.setSelectAllOnFocus(true);
+  box.addView(tv("Arşiv adı",14));box.addView(name,new LinearLayout.LayoutParams(-1,-2));
+  Spinner type=new Spinner(this);String[] types={"ZIP","ZIP (sıkıştırmasız)"};
   type.setAdapter(new ArrayAdapter<String>(this,android.R.layout.simple_spinner_dropdown_item,types));
-  box.addView(type);
-  EditText name=new EditText(this);
-  name.setSingleLine(true);
-  String base=source.getName();
-  if(base.toLowerCase(Locale.ROOT).endsWith(".zip"))base=base.substring(0,base.length()-4);
-  name.setText(base);
-  name.setSelectAllOnFocus(true);
-  box.addView(name);
-  TextView info=tv("Çıktı: "+current.getAbsolutePath(),12);
-  info.setMaxLines(2);
-  info.setEllipsize(android.text.TextUtils.TruncateAt.MIDDLE);
-  box.addView(info);
-  new AlertDialog.Builder(this).setTitle("Arşiv oluştur: "+source.getName()).setView(box)
-    .setPositiveButton("Oluştur",(d,w)->{
-      String n=name.getText().toString().trim();
-      if(n.isEmpty()){toast("Arşiv adı boş olamaz");return;}
-      if(!n.toLowerCase(Locale.ROOT).endsWith(".zip"))n+=".zip";
-      File out=new File(current,n);
-      createZipArchive(source,out,type.getSelectedItemPosition()==1);
-    }).setNegativeButton("İptal",null).show();
- }
- void createZipArchive(File source,File out,boolean stored){
-  String src=source.getAbsolutePath();
-  String dst=out.getAbsolutePath();
-  if(dst.equals(src)||dst.startsWith(src+File.separator)){
-    toast("Arşiv hedefi kaynak klasörün içinde olamaz");
-    return;
-  }
-  if(out.exists()){
-    new AlertDialog.Builder(this).setTitle("Dosya zaten var")
-      .setMessage(out.getName()+" zaten mevcut. Ne yapmak istiyorsun?")
-      .setPositiveButton("Kopya oluştur",(d,w)->writeZip(source,uniqueSibling(out),stored))
-      .setNeutralButton("Değiştir",(d,w)->writeZip(source,out,stored))
+  box.addView(tv("Arşiv türü",14));box.addView(type);
+  TextView chosen=tv("Seçilen dosyalar: 0",13);chosen.setPadding(0,12,0,8);box.addView(chosen);
+  LinearLayout picked=new LinearLayout(this);picked.setOrientation(LinearLayout.VERTICAL);box.addView(picked,new LinearLayout.LayoutParams(-1,0,1));
+  Button add=btn("Dosya ekle");
+  add.setOnClickListener(v->{
+    if(fs==null||fs.length==0){toast("Bu klasörde eklenecek dosya yok");return;}
+    String[] labels=new String[fs.length];boolean[] checks=new boolean[fs.length];
+    for(int i=0;i<fs.length;i++){labels[i]=fs[i].getName();checks[i]=selected.contains(fs[i]);}
+    new AlertDialog.Builder(this).setTitle("Arşive dosya ekle").setMultiChoiceItems(labels,checks,(d,which,isChecked)->{if(isChecked){if(!selected.contains(fs[which]))selected.add(fs[which]);}else selected.remove(fs[which]);chosen.setText("Seçilen dosyalar: "+selected.size());})
+      .setPositiveButton("Ekle",(d,w)->{picked.removeAllViews();for(File f:selected)picked.addView(tv("• "+f.getName(),14),new LinearLayout.LayoutParams(-1,44));})
       .setNegativeButton("İptal",null).show();
-  }else writeZip(source,out,stored);
+  });
+  box.addView(add,new LinearLayout.LayoutParams(-1,54));
+  new AlertDialog.Builder(this).setTitle("Arşiv oluştur").setView(box)
+    .setPositiveButton("Oluştur",(d,w)->{String n=name.getText().toString().trim();if(n.isEmpty()){toast("Arşiv adı boş olamaz");return;}if(!n.toLowerCase(Locale.ROOT).endsWith(".zip"))n+=".zip";if(selected.isEmpty()){toast("Arşive en az bir dosya ekle");return;}createZipArchive(selected,new File(current,n),type.getSelectedItemPosition()==1);})
+    .setNegativeButton("İptal",null).show();
  }
- void writeZip(File source,File out,boolean stored){
+ void createZipArchive(List<File> sources,File out,boolean stored){
+  String dst=out.getAbsolutePath();
+  for(File source:sources){String src=source.getAbsolutePath();if(dst.equals(src)||dst.startsWith(src+File.separator)){toast("Arşiv hedefi kaynak klasörün içinde olamaz");return;}}
+  if(out.exists())new AlertDialog.Builder(this).setTitle("Dosya zaten var").setMessage(out.getName()+" zaten mevcut. Ne yapmak istiyorsun?")
+    .setPositiveButton("Kopya oluştur",(d,w)->writeZip(sources,uniqueSibling(out),stored)).setNeutralButton("Değiştir",(d,w)->writeZip(sources,out,stored)).setNegativeButton("İptal",null).show();
+  else writeZip(sources,out,stored);
+ }
+ void writeZip(List<File> sources,File out,boolean stored){
   File tmp=new File(out.getAbsolutePath()+".part");
-  try{
-    if(tmp.exists()&&!tmp.delete())throw new IOException("Geçici dosya silinemedi");
-    ZipOutputStream z=new ZipOutputStream(new BufferedOutputStream(new FileOutputStream(tmp)));
-    try{
-      if(stored)z.setLevel(Deflater.NO_COMPRESSION);
-      zipRec(source,z,source.getName());
-    }finally{
-      z.close();
-    }
-    ZipFile verify=new ZipFile(tmp);
-    verify.close();
-    if(out.exists()&&!out.delete())throw new IOException("Eski arşiv silinemedi");
-    if(!tmp.renameTo(out))throw new IOException("Arşiv dosyası oluşturulamadı");
-    refresh();
-    toast("Geçerli ZIP oluşturuldu: "+out.getName());
-  }catch(Exception e){
-    tmp.delete();
-    toast("ZIP oluşturma hatası: "+e.getMessage());
-  }
+  try{if(tmp.exists()&&!tmp.delete())throw new IOException("Geçici dosya silinemedi");ZipOutputStream z=new ZipOutputStream(new BufferedOutputStream(new FileOutputStream(tmp)));try{if(stored)z.setLevel(Deflater.NO_COMPRESSION);for(File source:sources)zipRec(source,z,source.getName());}finally{z.close();}ZipFile verify=new ZipFile(tmp);verify.close();if(out.exists()&&!out.delete())throw new IOException("Eski arşiv silinemedi");if(!tmp.renameTo(out))throw new IOException("Arşiv dosyası oluşturulamadı");refresh();toast("Geçerli ZIP oluşturuldu: "+out.getName());}catch(Exception e){tmp.delete();toast("ZIP oluşturma hatası: "+e.getMessage());}
  }
  void zipRec(File f,ZipOutputStream z,String path)throws Exception{
-  if(f.isDirectory()){
-    File[] children=f.listFiles();
-    if(children==null||children.length==0){
-      z.putNextEntry(new ZipEntry(path+"/"));
-      z.closeEntry();
-      return;
-    }
-    for(File child:children)zipRec(child,z,path+"/"+child.getName());
-  }else{
-    z.putNextEntry(new ZipEntry(path));
-    FileInputStream in=new FileInputStream(f);
-    try{
-      byte[] buffer=new byte[8192];
-      int n;
-      while((n=in.read(buffer))!=-1)z.write(buffer,0,n);
-    }finally{
-      in.close();
-    }
-    z.closeEntry();
-  }
+  if(f.isDirectory()){File[] children=f.listFiles();if(children==null||children.length==0){z.putNextEntry(new ZipEntry(path+"/"));z.closeEntry();return;}for(File child:children)zipRec(child,z,path+"/"+child.getName());}
+  else{z.putNextEntry(new ZipEntry(path));FileInputStream in=new FileInputStream(f);try{byte[] buffer=new byte[8192];int n;while((n=in.read(buffer))!=-1)z.write(buffer,0,n);}finally{in.close();}z.closeEntry();}
  }
  void apps(){final PackageManager pm=getPackageManager();LinearLayout l=new LinearLayout(this);l.setOrientation(LinearLayout.VERTICAL);TextView count=tv("Uygulamalar yükleniyor...",16);l.addView(count);ScrollView s=new ScrollView(this);s.addView(l);new AlertDialog.Builder(this).setTitle("APK Çıkar").setView(s).setPositiveButton("Kapat",null).show();new Thread(()->{List<ApplicationInfo> all;try{all=pm.getInstalledApplications(PackageManager.GET_META_DATA);}catch(Exception ex){all=new ArrayList<>();}if(all==null)all=new ArrayList<>();all.sort((a,b)->String.valueOf(a.loadLabel(pm)).compareToIgnoreCase(String.valueOf(b.loadLabel(pm))));final List<ApplicationInfo> apps=all;runOnUiThread(()->{l.removeAllViews();long uc=apps.stream().filter(a->(a.flags&ApplicationInfo.FLAG_SYSTEM)==0).count(),sc=apps.size()-uc;Button user=btn("Kullanıcı Uygulamaları ("+uc+")"),sys=btn("Sistem Uygulamaları ("+sc+")");l.addView(user);l.addView(sys);LinearLayout results=new LinearLayout(this);results.setOrientation(LinearLayout.VERTICAL);l.addView(results);count.setText("Toplam görünür uygulama: "+apps.size());if(apps.isEmpty()){count.setText("Uygulama listesi boş. APK dosyaları için APK klasörünü de tarayabilirsiniz.");Button scan=btn("Depolamadaki APK dosyalarını tara");scan.setOnClickListener(v->scanApks(results));l.addView(scan);}user.setOnClickListener(v->showAppsList(results,apps,false,pm));sys.setOnClickListener(v->showAppsList(results,apps,true,pm));showAppsList(results,apps,false,pm);});}).start();}
  void scanApks(LinearLayout l){l.removeAllViews();l.addView(tv("Depolamadaki APK dosyaları",18));new Thread(()->{ArrayList<File> found=new ArrayList<>();scanApkRecursive(STORAGE,found,0);runOnUiThread(()->{if(found.isEmpty())l.addView(tv("APK bulunamadı.",16));else for(File f:found){TextView t=tv(f.getAbsolutePath()+"\n"+human(f.length()),15);t.setOnClickListener(v->apkContents(f));l.addView(t,new LinearLayout.LayoutParams(-1,72));}});}).start();}
