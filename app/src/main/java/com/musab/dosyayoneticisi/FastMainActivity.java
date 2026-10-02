@@ -15,7 +15,7 @@ import android.provider.Settings;
 import androidx.core.content.FileProvider;
 import java.io.File;
 
-/** Launcher entry point. Keeps the normal MainActivity behavior without altering touch handling. */
+/** Launcher entry point with normal file-manager touch handling. */
 public class FastMainActivity extends MainActivity {
     private static final int REQ_NOTIFICATIONS = 7001;
     private final Handler permissionHandler = new Handler(Looper.getMainLooper());
@@ -26,6 +26,9 @@ public class FastMainActivity extends MainActivity {
     public void onCreate(Bundle b) {
         getWindow().setBackgroundDrawable(new ColorDrawable(Color.rgb(10, 10, 12)));
         super.onCreate(b);
+        // MainActivity's root swipe listener can consume touch-up events on some devices.
+        // Disable only that listener; child buttons/rows keep their normal click handling.
+        if (root != null) root.setOnTouchListener(null);
     }
 
     @Override
