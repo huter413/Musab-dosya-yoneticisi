@@ -29,4 +29,5 @@ android {
 
 dependencies {
     implementation("androidx.core:core:1.15.0")
+    implementation("com.android.tools.build:apksig:8.8.0")
 }
