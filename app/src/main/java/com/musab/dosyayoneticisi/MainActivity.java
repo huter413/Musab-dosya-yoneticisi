@@ -5,7 +5,7 @@ import android.app.*;import android.os.*;import android.content.*;import android
 public class MainActivity extends Activity{
  LinearLayout root,list,actionBar; EditText pathEdit,searchEdit; File current,clipboard; boolean cutMode=false; float downX,downY; final File STORAGE=Environment.getExternalStorageDirectory(),MUSAB=new File(STORAGE,"MusabFolder"),APKS=new File(MUSAB,"apks"); final int REQ_STORAGE=10,REQ_TREE=11; Uri treeUri; int pad=18; boolean gridView=false,sortBySize=false; static final String SKK_PACKAGE="com.musab.skkinstaller"; final int BG=Color.rgb(10,10,12),PANEL=Color.rgb(24,24,28),FG=Color.WHITE;
  public void onCreate(Bundle b){super.onCreate(b);getWindow().setStatusBarColor(Color.rgb(10,10,12));getWindow().setNavigationBarColor(Color.rgb(10,10,12));ensureMusabFolders();current=STORAGE;build();refresh();requestStorageAccess();}
- @Override protected void onResume(){super.onResume();if(root!=null){ensureMusabFolders();refresh();}}
+ @Override protected void onResume(){super.onResume();if(root!=null)ensureMusabFolders();}
  void ensureMusabFolders(){MUSAB.mkdirs();APKS.mkdirs();}
  boolean storageReady(){return Build.VERSION.SDK_INT<30||Environment.isExternalStorageManager();}
  void openTreeAccess(){try{Intent i=new Intent(Intent.ACTION_OPEN_DOCUMENT_TREE);i.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION|Intent.FLAG_GRANT_WRITE_URI_PERMISSION|Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION|Intent.FLAG_GRANT_PREFIX_URI_PERMISSION);startActivityForResult(i,REQ_TREE);}catch(Exception e){toast("Klasör erişimi açılamadı");}}
