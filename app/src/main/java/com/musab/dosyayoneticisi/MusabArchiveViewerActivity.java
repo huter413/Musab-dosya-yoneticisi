@@ -5,6 +5,9 @@ import android.os.*;
 import android.graphics.Color;
 import android.view.*;
 import android.widget.*;
+import android.content.*;
+import android.net.Uri;
+import androidx.core.content.FileProvider;
 import java.io.*;
 import java.util.*;
 import java.util.zip.*;
@@ -177,9 +180,105 @@ public class MusabArchiveViewerActivity extends Activity {
         row.setGravity(Gravity.CENTER_VERTICAL);
         row.setPadding(18,16,18,16);
         row.setBackgroundColor(Color.rgb(20,20,24));
+        row.setOnClickListener(v -> openArchiveEntry(prefix + name));
         LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(-1, -2);
         lp.setMargins(0,1,0,1);
         list.addView(row, lp);
+    }
+
+
+    void openArchiveEntry(String entryName) {
+        if (zip == null || entryName == null) return;
+        final String normalized = normalizeEntry(entryName);
+        new Thread(() -> {
+            File temp = null;
+            try {
+                ZipEntry entry = findEntry(normalized);
+                if (entry == null || entry.isDirectory()) throw new IOException("Dosya bulunamadı");
+                String lower = normalized.toLowerCase(Locale.ROOT);
+                if (isExternalBinary(lower)) {
+                    runOnUiThread(() -> openExternalEntry(normalized));
+                    return;
+                }
+                if (!isEditableText(lower)) {
+                    runOnUiThread(() -> openExternalEntry(normalized));
+                    return;
+                }
+                temp = new File(getCacheDir(), "archive_edit_" + System.currentTimeMillis() + "_" + safeName(new File(normalized).getName()));
+                try (InputStream in = zip.getInputStream(entry); OutputStream out = new FileOutputStream(temp)) {
+                    byte[] buf = new byte[8192];
+                    int n;
+                    while ((n = in.read(buf)) != -1) out.write(buf, 0, n);
+                }
+                Intent i = new Intent(this, MusabTextActivity.class);
+                i.putExtra("path", temp.getAbsolutePath());
+                i.putExtra("archivePath", path);
+                i.putExtra("archiveEntry", normalized);
+                i.putExtra("archiveTemp", true);
+                startActivityForResult(i, 9124);
+            } catch (Exception e) {
+                if (temp != null) temp.delete();
+                runOnUiThread(() -> Toast.makeText(this, "Dosya açılamadı: " + e.getMessage(), Toast.LENGTH_LONG).show());
+            }
+        }).start();
+    }
+
+    boolean isEditableText(String name) {
+        return name.endsWith(".xml") || name.endsWith(".json") || name.endsWith(".txt") ||
+               name.endsWith(".smali") || name.endsWith(".java") || name.endsWith(".kt") ||
+               name.endsWith(".js") || name.endsWith(".ts") || name.endsWith(".css") ||
+               name.endsWith(".html") || name.endsWith(".htm") || name.endsWith(".gradle") ||
+               name.endsWith(".properties") || name.endsWith(".yml") || name.endsWith(".yaml") ||
+               name.endsWith(".sxml") || name.endsWith(".cfg") || name.endsWith(".ini");
+    }
+
+    boolean isExternalBinary(String name) {
+        return name.endsWith(".dex") || name.endsWith(".arsc") ||
+               name.equals("androidmanifest.xml") || name.endsWith("/androidmanifest.xml");
+    }
+
+    ZipEntry findEntry(String wanted) {
+        ZipEntry direct = zip.getEntry(wanted);
+        if (direct != null) return direct;
+        Enumeration<? extends ZipEntry> en = zip.entries();
+        while (en.hasMoreElements()) {
+            ZipEntry e = en.nextElement();
+            if (normalizeEntry(e.getName()).equals(wanted)) return e;
+        }
+        return null;
+    }
+
+    void openExternalEntry(String entryName) {
+        new Thread(() -> {
+            try {
+                ZipEntry entry = findEntry(entryName);
+                if (entry == null) throw new IOException("Dosya bulunamadı");
+                File temp = new File(getCacheDir(), "archive_open_" + System.currentTimeMillis() + "_" + safeName(new File(entryName).getName()));
+                try (InputStream in = zip.getInputStream(entry); OutputStream out = new FileOutputStream(temp)) {
+                    byte[] buf = new byte[8192];
+                    int n;
+                    while ((n = in.read(buf)) != -1) out.write(buf, 0, n);
+                }
+                Uri uri = FileProvider.getUriForFile(this, getPackageName() + ".fileprovider", temp);
+                String lower = entryName.toLowerCase(Locale.ROOT);
+                String mime = lower.endsWith(".xml") ? "text/xml" : "application/octet-stream";
+                Intent edit = new Intent(Intent.ACTION_EDIT);
+                edit.setDataAndType(uri, mime);
+                edit.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION | Intent.FLAG_GRANT_WRITE_URI_PERMISSION);
+                Intent view = new Intent(Intent.ACTION_VIEW);
+                view.setDataAndType(uri, mime);
+                view.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+                Intent chooser = Intent.createChooser(edit, "Düzenleyici ile aç");
+                chooser.putExtra(Intent.EXTRA_INITIAL_INTENTS, new Intent[]{view});
+                startActivity(chooser);
+            } catch (Exception e) {
+                runOnUiThread(() -> Toast.makeText(this, "Düzenleyici bulunamadı: " + e.getMessage(), Toast.LENGTH_LONG).show());
+            }
+        }).start();
+    }
+
+    String safeName(String name) {
+        return name == null ? "file" : name.replaceAll("[^A-Za-z0-9._-]", "_");
     }
 
     void goUp() {
