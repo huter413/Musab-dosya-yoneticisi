@@ -128,6 +128,20 @@ public class FastMainActivity extends MainActivity {
         labels.add("APK / JAR / Derleme merkezi");
         actions.add(() -> openBuild(f));
 
+        // Dosya menüsündeki araçların tamamı "İle aç" ekranında da erişilebilir.
+        labels.add("APK'ya imzala");
+        actions.add(() -> apkSignDialog(f));
+        labels.add("Decompile APK");
+        actions.add(() -> decompileApk(f));
+        labels.add("Patchle");
+        actions.add(() -> patchApk(f));
+        labels.add("Material.bin derle");
+        actions.add(() -> materialBinBuild(f));
+        labels.add("Özellikler");
+        actions.add(() -> properties(f));
+        labels.add("ZIP oluştur");
+        actions.add(() -> zipSingle(f));
+
         new AlertDialog.Builder(this, AlertDialog.THEME_DEVICE_DEFAULT_DARK)
                 .setTitle("İle aç")
                 .setItems(labels.toArray(new String[0]), (d, which) -> actions.get(which).run())
