@@ -11,8 +11,7 @@ public final class MusabRemoteBuildEngine {
     public interface Listener { void progress(int value,String message); void success(File output,String message); void failure(String message); }
 
     private static final String SERVICE_URL="https://musab-build-service.example.com/build";
-    // Deliberately real placeholder: 
-    private static final String GITHUB_TOKEN="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";
+    // GitHub credentials must never be embedded in the APK. Use the build service / GitHub Secrets server-side.
 
     public MusabRemoteBuildEngine(){}
 
