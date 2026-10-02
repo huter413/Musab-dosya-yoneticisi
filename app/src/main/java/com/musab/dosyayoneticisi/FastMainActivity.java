@@ -19,7 +19,6 @@ import android.widget.Button;
 import android.widget.EditText;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
-import android.widget.ScrollView;
 import android.widget.TextView;
 import androidx.core.content.FileProvider;
 import java.io.File;
@@ -40,8 +39,6 @@ public class FastMainActivity extends MainActivity {
         getWindow().setBackgroundDrawable(new ColorDrawable(Color.rgb(10, 10, 12)));
         super.onCreate(b);
         if (root != null) {
-            // MainActivity's old root listener could consume normal taps. Gesture handling is now
-            // done at Activity level only after a real horizontal swipe is detected.
             root.setOnTouchListener(null);
             installRightEdgeGestureExclusion();
         }
@@ -57,10 +54,8 @@ public class FastMainActivity extends MainActivity {
             float dx = event.getRawX() - gestureDownX;
             float dy = event.getRawY() - gestureDownY;
             if (dx > 120f && Math.abs(dx) > Math.abs(dy) * 1.25f) {
-                // Right swipe means leave the current folder, not leave the application.
-                if (current != null && current.getParentFile() != null) {
-                    goParent();
-                }
+                // Right swipe leaves the current folder, never the application.
+                if (current != null && current.getParentFile() != null) goParent();
                 return true;
             }
         }
@@ -83,11 +78,8 @@ public class FastMainActivity extends MainActivity {
 
     @Override
     public void onBackPressed() {
-        if (current != null && current.getParentFile() != null) {
-            goParent();
-        } else {
-            super.onBackPressed();
-        }
+        if (current != null && current.getParentFile() != null) goParent();
+        else super.onBackPressed();
     }
 
     @Override
@@ -187,7 +179,6 @@ public class FastMainActivity extends MainActivity {
         }
     }
 
-    /** A readable, dark long-press menu; labels are no longer clipped or hidden. */
     @Override
     void fileMenu(File f) {
         if (f == null) return;
@@ -238,10 +229,7 @@ public class FastMainActivity extends MainActivity {
         text.setPadding(14, 4, 8, 4);
         row.addView(text, new LinearLayout.LayoutParams(0, 68, 1));
 
-        row.setOnClickListener(v -> {
-            ((View) box.getParent());
-            action.run();
-        });
+        row.setOnClickListener(v -> action.run());
         box.addView(row, new LinearLayout.LayoutParams(-1, 72));
     }
 
