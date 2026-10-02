@@ -12,6 +12,11 @@ import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
 import android.provider.Settings;
+import android.view.View;
+import android.widget.Button;
+import android.widget.EditText;
+import android.widget.LinearLayout;
+import android.widget.TextView;
 import androidx.core.content.FileProvider;
 import java.io.File;
 
@@ -19,36 +24,39 @@ import java.io.File;
 public class FastMainActivity extends MainActivity {
     private static final int REQ_NOTIFICATIONS = 7001;
     private final Handler permissionHandler = new Handler(Looper.getMainLooper());
-    private boolean storageDialogShown;
+    private boolean storageSettingsOpened;
     private boolean notificationAsked;
 
     @Override
     public void onCreate(Bundle b) {
         getWindow().setBackgroundDrawable(new ColorDrawable(Color.rgb(10, 10, 12)));
         super.onCreate(b);
-        // MainActivity's root swipe listener can consume touch-up events on some devices.
-        // Disable only that listener; child buttons/rows keep their normal click handling.
+        // Keep child controls clickable; the old root swipe listener could consume touch events.
         if (root != null) root.setOnTouchListener(null);
+        restoreLargerUi();
     }
 
     @Override
     protected void onResume() {
         super.onResume();
+        if (Build.VERSION.SDK_INT >= 30 && !android.os.Environment.isExternalStorageManager()) {
+            // The storage permission is handled first, like a file manager's first launch.
+            if (!storageSettingsOpened) {
+                storageSettingsOpened = true;
+                permissionHandler.postDelayed(this::openAllFilesSettings, 250);
+            }
+            return;
+        }
         permissionHandler.postDelayed(this::maybeRequestNotifications, 500);
     }
 
     @Override
     void requestStorageAccess() {
         if (Build.VERSION.SDK_INT >= 30 && !android.os.Environment.isExternalStorageManager()) {
-            if (storageDialogShown) return;
-            storageDialogShown = true;
-            new AlertDialog.Builder(this)
-                    .setTitle("Dosya erişimi gerekli")
-                    .setMessage("Musab Dosya Yöneticisi dosyalarını doğrudan gösterebilmek için dosya erişimi istiyor.")
-                    .setPositiveButton("İzin ver", (d, w) -> openAllFilesSettings())
-                    .setNeutralButton("Klasör seç", (d, w) -> openTreeAccess())
-                    .setNegativeButton("Şimdi değil", null)
-                    .show();
+            if (!storageSettingsOpened) {
+                storageSettingsOpened = true;
+                openAllFilesSettings();
+            }
         } else if (Build.VERSION.SDK_INT >= 23 && Build.VERSION.SDK_INT <= 32
                 && checkSelfPermission("android.permission.READ_EXTERNAL_STORAGE") != PackageManager.PERMISSION_GRANTED) {
             requestPermissions(new String[]{"android.permission.READ_EXTERNAL_STORAGE"}, REQ_STORAGE);
@@ -75,6 +83,61 @@ public class FastMainActivity extends MainActivity {
                 startActivity(new Intent(Settings.ACTION_MANAGE_ALL_FILES_ACCESS_PERMISSION));
             } catch (Exception ignored) {
                 toast("Dosya erişimi ekranı açılamadı");
+            }
+        }
+    }
+
+    private void restoreLargerUi() {
+        if (root == null || root.getChildCount() < 4) return;
+
+        View title = root.getChildAt(0);
+        if (title instanceof TextView) {
+            TextView t = (TextView) title;
+            t.setText("Musab Dosya Yöneticisi");
+            t.setTextSize(29);
+            t.setPadding(14, 18, 14, 12);
+        }
+
+        View nav = root.getChildAt(1);
+        if (nav instanceof LinearLayout) {
+            LinearLayout row = (LinearLayout) nav;
+            for (int i = 0; i < row.getChildCount(); i++) {
+                View child = row.getChildAt(i);
+                if (child instanceof Button) {
+                    ((Button) child).setTextSize(16);
+                    child.getLayoutParams().height = 76;
+                    child.requestLayout();
+                } else if (child instanceof EditText) {
+                    ((EditText) child).setTextSize(19);
+                }
+            }
+        }
+
+        View searchRow = root.getChildAt(2);
+        if (searchRow instanceof LinearLayout) {
+            LinearLayout row = (LinearLayout) searchRow;
+            for (int i = 0; i < row.getChildCount(); i++) {
+                View child = row.getChildAt(i);
+                if (child instanceof Button) {
+                    ((Button) child).setTextSize(16);
+                    child.getLayoutParams().height = 76;
+                    child.requestLayout();
+                } else if (child instanceof EditText) {
+                    ((EditText) child).setTextSize(19);
+                }
+            }
+        }
+
+        View actions = root.getChildAt(3);
+        if (actions instanceof LinearLayout) {
+            LinearLayout row = (LinearLayout) actions;
+            for (int i = 0; i < row.getChildCount(); i++) {
+                View child = row.getChildAt(i);
+                if (child instanceof Button) {
+                    ((Button) child).setTextSize(16);
+                    child.getLayoutParams().height = 76;
+                    child.requestLayout();
+                }
             }
         }
     }
