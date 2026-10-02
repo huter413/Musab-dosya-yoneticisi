@@ -4,6 +4,7 @@ import android.Manifest;
 import android.app.AlertDialog;
 import android.content.Intent;
 import android.content.pm.PackageManager;
+import android.content.pm.ApplicationInfo;
 import android.graphics.Color;
 import android.graphics.Rect;
 import android.graphics.drawable.ColorDrawable;
@@ -288,5 +289,49 @@ public class FastMainActivity extends MainActivity {
         } catch (Exception e) {
             toast("Dosya açılamadı: " + e.getMessage());
         }
+    }
+
+    @Override
+    void extractApk(ApplicationInfo ai) {
+        if (ai == null) {
+            toast("APK bilgisi bulunamadı.");
+            return;
+        }
+        ensureMusabFolders();
+        try {
+            String label = String.valueOf(ai.loadLabel(getPackageManager())).trim();
+            if (label.isEmpty() || "null".equalsIgnoreCase(label)) label = ai.packageName;
+            String safe = label.replaceAll("[^A-Za-z0-9._-]", "_");
+            if (safe.isEmpty()) safe = "Uygulama";
+
+            File output = uniqueApkFile(new File(APKS, safe + ".apk"));
+            copyRecursive(new File(ai.sourceDir), output);
+
+            if (ai.splitSourceDirs != null) {
+                for (int n = 0; n < ai.splitSourceDirs.length; n++) {
+                    File split = new File(APKS, safe + "-split-" + (n + 1) + ".apk");
+                    split = uniqueApkFile(split);
+                    copyRecursive(new File(ai.splitSourceDirs[n]), split);
+                }
+            }
+            toast("APK çıkarıldı: " + output.getAbsolutePath());
+        } catch (Exception e) {
+            toast("APK çıkarma hatası: " + e.getMessage());
+        }
+    }
+
+    private File uniqueApkFile(File wanted) {
+        if (!wanted.exists()) return wanted;
+        String name = wanted.getName();
+        int dot = name.lastIndexOf('.');
+        String base = dot > 0 ? name.substring(0, dot) : name;
+        String ext = dot > 0 ? name.substring(dot) : ".apk";
+        int n = 1;
+        File candidate;
+        do {
+            candidate = new File(wanted.getParentFile(), base + " (" + n + ")" + ext);
+            n++;
+        } while (candidate.exists());
+        return candidate;
     }
 }
