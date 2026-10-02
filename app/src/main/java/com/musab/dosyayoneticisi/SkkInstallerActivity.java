@@ -334,7 +334,15 @@ public class SkkInstallerActivity extends Activity {
                 PackageInstaller installer = getPackageManager().getPackageInstaller();
                 PackageInstaller.SessionParams params = new PackageInstaller.SessionParams(
                         PackageInstaller.SessionParams.MODE_FULL_INSTALL);
+                // SKK'nin kendi özel arayüzünden sonra doğrudan PackageInstaller
+                // oturumunu kullan. ACTION_INSTALL_PACKAGE kesinlikle kullanılmaz.
+                // Android izin veriyorsa sistem onay ekranını da atlamasını isteriz;
+                // normal uygulamalarda Android bunu güvenlik nedeniyle reddedebilir.
+                if (Build.VERSION.SDK_INT >= 31) {
+                    params.setRequireUserAction(PackageInstaller.SessionParams.USER_ACTION_NOT_REQUIRED);
+                }
                 if (updateMode) params.setInstallReason(PackageManager.INSTALL_REASON_USER);
+                if (targetPackage != null) params.setAppPackageName(targetPackage);
                 int sid = installer.createSession(params);
                 session = installer.openSession(sid);
                 installSession = session;
