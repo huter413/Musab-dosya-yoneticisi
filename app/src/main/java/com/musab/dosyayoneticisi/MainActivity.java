@@ -79,7 +79,7 @@ public class MainActivity extends Activity{
   final ArrayList<String> labels=new ArrayList<>();final ArrayList<Integer> icons=new ArrayList<>();
   labels.add("Aç");icons.add(R.drawable.ic_file);
   if(skk){labels.add("SKK ile aç");icons.add(R.drawable.ic_skk);}
-  if(archive){labels.add("İle aç");icons.add(R.drawable.ic_tool_archive);}
+  labels.add("İle aç");icons.add(R.drawable.ic_file);
   if(apk){labels.add("Decompile APK");icons.add(R.drawable.ic_tool_apk);labels.add("Patchle");icons.add(R.drawable.ic_tool_apk);}
   if(material){labels.add("Material.bin derle");icons.add(R.drawable.ic_tool_archive);}
   labels.add("Yeniden adlandır");icons.add(R.drawable.ic_file);labels.add("Kopyala");icons.add(R.drawable.ic_file);labels.add("Kes");icons.add(R.drawable.ic_file);labels.add("Sil");icons.add(R.drawable.ic_file);labels.add("Özellikler");icons.add(R.drawable.ic_tool_xml);labels.add("Paylaş");icons.add(R.drawable.ic_file);
@@ -87,9 +87,33 @@ public class MainActivity extends Activity{
   labels.add("ZIP oluştur");icons.add(R.drawable.ic_tool_archive);
   GridLayout grid=new GridLayout(this);grid.setColumnCount(3);grid.setPadding(8,8,8,8);
   for(int n=0;n<labels.size();n++){final int idx=n;LinearLayout cell=new LinearLayout(this);cell.setOrientation(LinearLayout.VERTICAL);cell.setGravity(Gravity.CENTER);ImageView iv=new ImageView(this);iv.setImageResource(icons.get(n));TextView lab=tv(labels.get(n),12);lab.setGravity(Gravity.CENTER);lab.setMaxLines(2);cell.addView(iv,new LinearLayout.LayoutParams(56,50));cell.addView(lab,new LinearLayout.LayoutParams(96,42));cell.setOnClickListener(v->{String a=labels.get(idx);
-    if(a.equals("Aç"))openFile(f);else if(a.equals("SKK ile aç"))openWithSkk(f);else if(a.equals("İle aç"))openBuild(f);else if(a.equals("Decompile APK"))decompileApk(f);else if(a.equals("Patchle"))patchApk(f);else if(a.equals("Material.bin derle"))materialBinBuild(f);else if(a.equals("Yeniden adlandır"))rename(f);else if(a.equals("Kopyala")){clipboard=f;cutMode=false;toast("Kopyalandı");}else if(a.equals("Kes")){clipboard=f;cutMode=true;toast("Kesildi");}else if(a.equals("Sil"))confirmDelete(f);else if(a.equals("Özellikler"))properties(f);else if(a.equals("Paylaş"))share(f);else if(a.equals("APK'ya imzala"))apkSignDialog(f);else if(a.equals("ZIP oluştur"))zipSingle(f);
+    if(a.equals("Aç"))openFile(f);else if(a.equals("SKK ile aç"))openWithSkk(f);else if(a.equals("İle aç"))openWithDialog(f);else if(a.equals("Decompile APK"))decompileApk(f);else if(a.equals("Patchle"))patchApk(f);else if(a.equals("Material.bin derle"))materialBinBuild(f);else if(a.equals("Yeniden adlandır"))rename(f);else if(a.equals("Kopyala")){clipboard=f;cutMode=false;toast("Kopyalandı");}else if(a.equals("Kes")){clipboard=f;cutMode=true;toast("Kesildi");}else if(a.equals("Sil"))confirmDelete(f);else if(a.equals("Özellikler"))properties(f);else if(a.equals("Paylaş"))share(f);else if(a.equals("APK'ya imzala"))apkSignDialog(f);else if(a.equals("ZIP oluştur"))zipSingle(f);
   });grid.addView(cell,new ViewGroup.LayoutParams(106,94));}
   new AlertDialog.Builder(this).setTitle(f.getName()).setView(grid).show();
+ }
+ void openWithDialog(File f){
+  String x=f.getName().toLowerCase(Locale.ROOT);
+  ArrayList<String> choices=new ArrayList<>();
+  if(x.endsWith(".apk"))choices.add("Android Paket Yükleyicisi");
+  if(isSkk(x)&&skkInstalled())choices.add("SKK Yükleyicisi");
+  if(isText(x))choices.add("Musab Text");
+  if(isImage(x))choices.add("Musab Görsel Görüntüleyici");
+  if(isVideo(x))choices.add("Musab Video Görüntüleyici");
+  if(isAudio(x))choices.add("Musab Ses Dinleyici");
+  if(isArchive(x))choices.add("Musab Arşiv Görüntüleyici");
+  choices.add("Diğer uygulamalar");
+  String[] arr=choices.toArray(new String[0]);
+  new AlertDialog.Builder(this).setTitle("İle aç").setItems(arr,(d,which)->{
+    String a=arr[which];
+    if(a.equals("Android Paket Yükleyicisi"))installApkFile(f);
+    else if(a.equals("SKK Yükleyicisi"))openWithSkk(f);
+    else if(a.equals("Musab Text")){Intent i=new Intent(this,MusabTextActivity.class);i.putExtra("path",f.getAbsolutePath());startActivity(i);}
+    else if(a.equals("Musab Görsel Görüntüleyici")){Intent i=new Intent(this,MusabImageViewerActivity.class);i.putExtra("path",f.getAbsolutePath());startActivity(i);}
+    else if(a.equals("Musab Video Görüntüleyici")){Intent i=new Intent(this,MusabVideoViewerActivity.class);i.putExtra("path",f.getAbsolutePath());startActivity(i);}
+    else if(a.equals("Musab Ses Dinleyici")){Intent i=new Intent(this,MusabAudioPlayerActivity.class);i.putExtra("path",f.getAbsolutePath());startActivity(i);}
+    else if(a.equals("Musab Arşiv Görüntüleyici")){Intent i=new Intent(this,MusabArchiveViewerActivity.class);i.putExtra("path",f.getAbsolutePath());startActivity(i);}
+    else {try{Uri u=FileProvider.getUriForFile(this,getPackageName()+".fileprovider",f);Intent i=new Intent(Intent.ACTION_VIEW);i.setDataAndType(u,getMime(x));i.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);startActivity(Intent.createChooser(i,"İle aç"));}catch(Exception e){toast("Uygulama bulunamadı: "+e.getMessage());}}
+  }).show();
  }
  void decompileApk(File apk){
   if(!apk.isFile()){toast("APK bulunamadı");return;}
