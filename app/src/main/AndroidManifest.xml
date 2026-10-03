@@ -14,6 +14,14 @@
   <activity android:name=".MusabVideoViewerActivity" android:exported="false"/>
   <activity android:name=".MusabAudioPlayerActivity" android:exported="false"/>
   <activity android:name=".MusabArchiveViewerActivity" android:exported="false"/>
+  <activity android:name=".Musab3DModelViewerActivity" android:exported="true" android:label="Musab 3D Model Görüntüleyici">
+   <intent-filter>
+    <action android:name="android.intent.action.VIEW"/><category android:name="android.intent.category.DEFAULT"/><category android:name="android.intent.category.BROWSABLE"/>
+    <data android:scheme="content" android:mimeType="model/obj"/><data android:scheme="file" android:mimeType="model/obj"/>
+    <data android:scheme="content" android:mimeType="model/stl"/><data android:scheme="file" android:mimeType="model/stl"/>
+    <data android:scheme="content" android:mimeType="model/ply"/><data android:scheme="file" android:mimeType="model/ply"/>
+   </intent-filter>
+  </activity>
   <activity android:name=".MusabBuildActivity" android:exported="false"/>
   <activity android:name=".SkkInstallerActivity" android:exported="true">
    <intent-filter>
