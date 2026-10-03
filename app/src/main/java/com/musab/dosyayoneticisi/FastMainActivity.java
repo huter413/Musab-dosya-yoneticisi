@@ -192,10 +192,7 @@ public class FastMainActivity extends MainActivity {
             else toast("Bu dosya resources.arsc / .arsc değil.");
         });
         labels.add("3D Model Görüntüle");
-        actions.add(() -> {
-            if (is3DModel(f.getName().toLowerCase(Locale.ROOT))) open3DViewer(f);
-            else toast("Desteklenen 3D model: OBJ, STL veya PLY.");
-        });
+        actions.add(() -> open3DViewer(f));
 
         if (skkInstalled()) {
             labels.add("SKK Yükleyicisi");
