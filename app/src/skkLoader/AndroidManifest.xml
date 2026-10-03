@@ -12,9 +12,22 @@
                 <category android:name="android.intent.category.DEFAULT"/>
                 <category android:name="android.intent.category.BROWSABLE"/>
                 <data android:mimeType="application/x-skk"/>
+                <data android:scheme="content" android:pathPattern=".*\\.skk"/>
+                <data android:scheme="file" android:pathPattern=".*\\.skk"/>
             </intent-filter>
         </activity>
-        <provider android:name="androidx.core.content.FileProvider" android:authorities="${applicationId}.fileprovider" android:exported="false" android:grantUriPermissions="true"><meta-data android:name="android.support.FILE_PROVIDER_PATHS" android:resource="@xml/file_paths"/></provider>
+
+        <!-- SKK Loader flavor must contain only the installer. Remove every manager entry point. -->
+        <activity android:name=".FastMainActivity" tools:node="remove"/>
         <activity android:name=".MainActivity" tools:node="remove"/>
+        <activity android:name=".MusabTextActivity" tools:node="remove"/>
+        <activity android:name=".MusabXmlViewerActivity" tools:node="remove"/>
+        <activity android:name=".MusabImageViewerActivity" tools:node="remove"/>
+        <activity android:name=".MusabVideoViewerActivity" tools:node="remove"/>
+        <activity android:name=".MusabAudioPlayerActivity" tools:node="remove"/>
+        <activity android:name=".MusabArchiveViewerActivity" tools:node="remove"/>
+        <activity android:name=".MusabBuildActivity" tools:node="remove"/>
+        <receiver android:name=".MusabWidgetProvider" tools:node="remove"/>
+        <receiver android:name=".SkkInstallReceiver" android:exported="false"/>
     </application>
 </manifest>
