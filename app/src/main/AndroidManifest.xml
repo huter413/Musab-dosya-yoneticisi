@@ -33,7 +33,6 @@
     <data android:scheme="file" android:pathPattern=".*\\.skk"/>
    </intent-filter>
   </activity>
-  <receiver android:name=".SkkInstallReceiver" android:exported="false"/>
   <activity android:name=".FastMainActivity" android:screenOrientation="portrait" android:exported="true">
    <intent-filter><action android:name="android.intent.action.MAIN"/><category android:name="android.intent.category.LAUNCHER"/></intent-filter>
   </activity>
