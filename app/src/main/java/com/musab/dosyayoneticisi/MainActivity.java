@@ -39,7 +39,27 @@ public class MainActivity extends Activity{
  boolean isVideo(String x){return x.endsWith(".mp4")||x.endsWith(".mkv")||x.endsWith(".webm")||x.endsWith(".3gp")||x.endsWith(".avi")||x.endsWith(".mov")||x.endsWith(".m4v");}
  boolean isSkk(String x){return x.endsWith(".skk");}
  boolean skkInstalled(){try{return getPackageManager().getLaunchIntentForPackage(SKK_PACKAGE)!=null;}catch(Exception e){return false;}}
- void openWithSkk(File f){\n  try{\n   Uri u=FileProvider.getUriForFile(this,getPackageName()+".fileprovider",f);\n   Intent i=new Intent(Intent.ACTION_VIEW);\n   i.setComponent(new ComponentName(SKK_PACKAGE,SKK_PACKAGE+".SkkInstallerActivity"));\n   i.setDataAndType(u,"application/x-skk");\n   i.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION|Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION);\n   i.setClipData(ClipData.newRawUri("SKK",u));\n   i.putExtra("skk_source_uri",u.toString());\n   startActivity(i);\n  }catch(Exception e){\n   try{\n    Uri u=FileProvider.getUriForFile(this,getPackageName()+".fileprovider",f);\n    Intent fallback=new Intent(this,SkkInstallerActivity.class);\n    fallback.setDataAndType(u,"application/x-skk");\n    fallback.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);\n    fallback.setClipData(ClipData.newRawUri("SKK",u));\n    startActivity(fallback);\n   }catch(Exception x){toast("SKK Yükleyicisi açılamadı: "+x.getMessage());}\n  }\n} void installApkFile(File f){try{Uri u=FileProvider.getUriForFile(this,getPackageName()+".fileprovider",f);Intent i=new Intent(Intent.ACTION_INSTALL_PACKAGE);i.setDataAndType(u,"application/vnd.android.package-archive");i.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);i.putExtra(Intent.EXTRA_INSTALLER_PACKAGE_NAME,getPackageName());startActivity(i);}catch(Exception e){toast("APK paket yükleyicisi açılamadı: "+e.getMessage());}}
+ void openWithSkk(File f){
+  try{
+   Uri u=FileProvider.getUriForFile(this,getPackageName()+".fileprovider",f);
+   Intent i=new Intent(Intent.ACTION_VIEW);
+   i.setComponent(new ComponentName(SKK_PACKAGE,SKK_PACKAGE+".SkkInstallerActivity"));
+   i.setDataAndType(u,"application/x-skk");
+   i.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION|Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION);
+   i.setClipData(ClipData.newRawUri("SKK",u));
+   i.putExtra("skk_source_uri",u.toString());
+   startActivity(i);
+  }catch(Exception e){
+   try{
+    Uri u=FileProvider.getUriForFile(this,getPackageName()+".fileprovider",f);
+    Intent fallback=new Intent(this,SkkInstallerActivity.class);
+    fallback.setDataAndType(u,"application/x-skk");
+    fallback.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+    fallback.setClipData(ClipData.newRawUri("SKK",u));
+    startActivity(fallback);
+   }catch(Exception x){toast("SKK Yükleyicisi açılamadı: "+x.getMessage());}
+  }
+} void installApkFile(File f){try{Uri u=FileProvider.getUriForFile(this,getPackageName()+".fileprovider",f);Intent i=new Intent(Intent.ACTION_INSTALL_PACKAGE);i.setDataAndType(u,"application/vnd.android.package-archive");i.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);i.putExtra(Intent.EXTRA_INSTALLER_PACKAGE_NAME,getPackageName());startActivity(i);}catch(Exception e){toast("APK paket yükleyicisi açılamadı: "+e.getMessage());}}
  boolean isAudio(String x){return x.endsWith(".mp3")||x.endsWith(".wav")||x.endsWith(".ogg")||x.endsWith(".m4a")||x.endsWith(".aac")||x.endsWith(".flac")||x.endsWith(".opus");}
  boolean isArchive(String x){return x.endsWith(".zip")||x.endsWith(".jar")||x.endsWith(".apk")||x.endsWith(".aab")||x.endsWith(".xapk")||x.endsWith(".apks");}
  String getMime(String x){if(isImage(x))return "image/*";if(isVideo(x))return "video/*";if(isAudio(x))return "audio/*";if(isSkk(x))return "application/x-skk";if(x.endsWith(".apk"))return "application/vnd.android.package-archive";if(isText(x))return "text/plain";return "*/*";}
