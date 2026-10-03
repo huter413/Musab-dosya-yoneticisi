@@ -31,6 +31,7 @@ public class FastMainActivity extends MainActivity {
     private static final int REQ_NOTIFICATIONS = 7001;
     private final Handler permissionHandler = new Handler(Looper.getMainLooper());
     private boolean notificationAsked;
+    private boolean allFilesPromptScheduled;
     private float gestureDownX;
     private float gestureDownY;
 
@@ -121,8 +122,26 @@ public class FastMainActivity extends MainActivity {
      */
     @Override
     void requestStorageAccess() {
-        // Başlangıçta /storage/emulated/0/ açılmasını engelleme.
-        // Erişim gerçekten yoksa refresh() kullanıcıya erişim kontrolünü gösterir.
+        // Android 11+: kullanıcıyı resmi "Tüm dosyalara erişim" ekranına otomatik götür.
+        // Uygulama bu özel izni kendi kendine veremez.
+        if (Build.VERSION.SDK_INT >= 30 && !android.os.Environment.isExternalStorageManager()) {
+            if (allFilesPromptScheduled) return;
+            allFilesPromptScheduled = true;
+            permissionHandler.postDelayed(() -> {
+                try {
+                    Intent i = new Intent(Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION);
+                    i.setData(Uri.parse("package:" + getPackageName()));
+                    startActivity(i);
+                } catch (Exception e) {
+                    try {
+                        startActivity(new Intent(Settings.ACTION_MANAGE_ALL_FILES_ACCESS_PERMISSION));
+                    } catch (Exception ignored) {
+                        toast("Android tüm dosyalara erişim ayarını açamadı.");
+                    }
+                }
+            }, 15000L);
+            return;
+        }
         if (current != null && root != null && list != null) refresh();
     }
 
