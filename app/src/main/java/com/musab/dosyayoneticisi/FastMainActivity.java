@@ -121,8 +121,6 @@ public class FastMainActivity extends MainActivity {
         // Android 11+: kullanıcıyı resmi "Tüm dosyalara erişim" ekranına otomatik götür.
         // Uygulama bu özel izni kendi kendine veremez.
         if (Build.VERSION.SDK_INT >= 30 && !android.os.Environment.isExternalStorageManager()) {
-            if (allFilesPromptScheduled) return;
-            allFilesPromptScheduled = true;
             try {
                 Intent i = new Intent(Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION);
                 i.setData(Uri.parse("package:" + getPackageName()));
