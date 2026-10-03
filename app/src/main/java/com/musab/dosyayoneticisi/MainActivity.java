@@ -186,7 +186,7 @@ public class MainActivity extends Activity{
   });
   box.addView(add,new LinearLayout.LayoutParams(-1,54));
   new AlertDialog.Builder(this).setTitle("Arşiv oluştur").setView(box)
-    .setPositiveButton("Oluştur",(d,w)->{String n=name.getText().toString().trim();if(n.isEmpty()){toast("Arşiv adı boş olamaz");return;}if(!n.toLowerCase(Locale.ROOT).endsWith(".zip"))n+=".zip";if(selected.isEmpty()){toast("Arşive en az bir dosya ekle");return;}createZipArchive(selected,new File(current,n),type.getSelectedItemPosition()==1);})
+    .setPositiveButton("Oluştur",(d,w)->{String n=name.getText().toString().trim();if(n.isEmpty()){toast("Arşiv adı boş olamaz");return;}if(!n.toLowerCase(Locale.ROOT).endsWith(".zip"))n+=".zip";createZipArchive(selected,new File(current,n),type.getSelectedItemPosition()==1);})
     .setNegativeButton("İptal",null).show();
  }
  void createZipArchive(List<File> sources,File out,boolean stored){
