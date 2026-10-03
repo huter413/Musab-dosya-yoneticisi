@@ -111,12 +111,6 @@ public class FastMainActivity extends MainActivity {
         }
         String normalized = path.replace('\\', '/');
         String storagePath = STORAGE.getAbsolutePath();
-        if (normalized.equalsIgnoreCase(storagePath) || normalized.toLowerCase(Locale.ROOT).startsWith(storagePath.toLowerCase(Locale.ROOT) + "/")) {
-            if (Build.VERSION.SDK_INT >= 30 && !android.os.Environment.isExternalStorageManager()) {
-                requestStorageAccess();
-                return;
-            }
-        }
         super.navigate(path);
     }
 
@@ -127,22 +121,9 @@ public class FastMainActivity extends MainActivity {
      */
     @Override
     void requestStorageAccess() {
-        if (Build.VERSION.SDK_INT < 30 || android.os.Environment.isExternalStorageManager()) {
-            if (current != null && current.equals(STORAGE) && root != null && list != null) refresh();
-            return;
-        }
-        try {
-            Intent intent = new Intent(
-                    Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION,
-                    Uri.parse("package:" + getPackageName()));
-            startActivity(intent);
-        } catch (Exception ignored) {
-            try {
-                startActivity(new Intent(Settings.ACTION_MANAGE_ALL_FILES_ACCESS_PERMISSION));
-            } catch (Exception ignoredAgain) {
-                // Sistem bu ekranı sağlamıyorsa uygulama normal şekilde devam eder.
-            }
-        }
+        // Başlangıçta /storage/emulated/0/ açılmasını engelleme.
+        // Erişim gerçekten yoksa refresh() kullanıcıya erişim kontrolünü gösterir.
+        if (current != null && root != null && list != null) refresh();
     }
 
     @Override
