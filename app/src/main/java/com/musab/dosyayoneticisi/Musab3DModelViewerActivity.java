@@ -93,7 +93,7 @@ public class Musab3DModelViewerActivity extends Activity {
             GLES20.glClearColor(0.035f,0.035f,0.045f,1);
             String vs="attribute vec3 aPos;attribute vec3 aNor;uniform mat4 uMvp;varying vec3 vN;void main(){vN=aNor;gl_Position=uMvp*vec4(aPos,1.0);}";
             String fs="precision mediump float;varying vec3 vN;void main(){vec3 n=normalize(vN);float l=max(0.18,dot(n,normalize(vec3(0.5,0.8,1.0))));vec3 base=vec3(0.62,0.72,0.86);gl_FragColor=vec4(base*(0.35+0.75*l),1.0);}";
-            program=link(vs,fs);vbo=GLES20.glGenBuffers(1,new int[]{0},0);GLES20.glEnable(GLES20.GL_DEPTH_TEST);
+            program=link(vs,fs);GLES20.glEnable(GLES20.GL_DEPTH_TEST);
         }
         int link(String v,String f){int a=shader(GLES20.GL_VERTEX_SHADER,v),b=shader(GLES20.GL_FRAGMENT_SHADER,f),p=GLES20.glCreateProgram();GLES20.glAttachShader(p,a);GLES20.glAttachShader(p,b);GLES20.glLinkProgram(p);return p;}
         int shader(int t,String s){int x=GLES20.glCreateShader(t);GLES20.glShaderSource(x,s);GLES20.glCompileShader(x);return x;}
@@ -104,7 +104,7 @@ public class Musab3DModelViewerActivity extends Activity {
             Matrix.setIdentityM(model,0);
             Matrix.translateM(model,0,panX,panY,0);
             Matrix.rotateM(model,0,pitch,1,0,0); Matrix.rotateM(model,0,yaw,0,1,0);
-            Matrix.setLookAtM(view,0,0,0,distance,0,0,0,1,0);
+            Matrix.setLookAtM(view,0,0,0,distance,0,0,0,0,1,0);
             float[] mv=new float[16];Matrix.multiplyMM(mv,0,view,0,model,0);Matrix.multiplyMM(mvp,0,proj,0,mv,0);
             FloatBuffer b=ByteBuffer.allocateDirect(verts.length*4).order(ByteOrder.nativeOrder()).asFloatBuffer();b.put(verts).position(0);
             GLES20.glUseProgram(program);int p=GLES20.glGetAttribLocation(program,"aPos"),n=GLES20.glGetAttribLocation(program,"aNor"),u=GLES20.glGetUniformLocation(program,"uMvp");
@@ -125,8 +125,8 @@ public class Musab3DModelViewerActivity extends Activity {
         static Mesh obj(File f)throws Exception{
             ArrayList<float[]> v=new ArrayList<>(),out=new ArrayList<>();BufferedReader r=new BufferedReader(new InputStreamReader(new FileInputStream(f),"UTF-8"));
             String s;while((s=r.readLine())!=null){s=s.trim();if(s.startsWith("v ")){String[] a=s.substring(2).trim().split("\\s+");v.add(new float[]{Float.parseFloat(a[0]),Float.parseFloat(a[1]),Float.parseFloat(a[2])});}
-                else if(s.startsWith("f ")){String[] a=s.substring(2).trim().split("\\s+");if(a.length>=3)for(int i=1;i<a.length-1;i++){int[] ids={idx(a[0]),idx(a[i]),idx(a[i+1])};float[] A=v.get(ids[0]),B=v.get(ids[1]),C=v.get(ids[2]);float[] no=normal(A,B,C);for(int id:ids){float[] P=v.get(id);for(float q:P)out.add(q);for(float q:no)out.add(q);}}}}
-            r.close();float[] z=new float[out.size()];for(int i=0;i<z.length;i++)z[i]=out.get(i)[0];return new Mesh(normalize(z));
+                else if(s.startsWith("f ")){String[] a=s.substring(2).trim().split("\\s+");if(a.length>=3)for(int i=1;i<a.length-1;i++){int[] ids={idx(a[0]),idx(a[i]),idx(a[i+1])};float[] A=v.get(ids[0]),B=v.get(ids[1]),C=v.get(ids[2]);float[] no=normal(A,B,C);for(int id:ids){float[] P=v.get(id);out.add(new float[]{P[0],P[1],P[2],no[0],no[1],no[2]});}}}}
+            r.close();float[] z=new float[out.size()*6];int k=0;for(float[] p:out)for(float q:p)z[k++]=q;return new Mesh(normalize(z));
         }
         static int idx(String s){return Integer.parseInt(s.split("/")[0])-1;}
         static Mesh stl(File f)throws Exception{
