@@ -46,7 +46,7 @@ public class FastMainActivity extends MainActivity {
                 LinearLayout navLayout = (LinearLayout) nav;
                 if (navLayout.getChildCount() > 0 && navLayout.getChildAt(0) instanceof Button) {
                     ((Button) navLayout.getChildAt(0)).setOnClickListener(v -> {
-                        current = new File("/");
+                        current = STORAGE;
                         refresh();
                     });
                 }
@@ -73,9 +73,9 @@ public class FastMainActivity extends MainActivity {
 
     private boolean isFilesystemRoot() {
         try {
-            return current != null && current.getCanonicalFile().equals(new File("/").getCanonicalFile());
+            return current != null && current.getCanonicalFile().equals(STORAGE.getCanonicalFile());
         } catch (Exception e) {
-            return current != null && current.equals(new File("/"));
+            return current != null && current.equals(STORAGE);
         }
     }
 
