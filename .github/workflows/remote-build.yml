@@ -181,13 +181,29 @@ jobs:
           echo "Tür: ${{ steps.cfg.outputs.type }}" > dist/build-info.txt
           echo "Minecraft Java: ${{ steps.cfg.outputs.java_version }}" >> dist/build-info.txt
           echo "Hedef: ${{ steps.cfg.outputs.target }}" >> dist/build-info.txt
-      - name: Upload result
+      - name: Upload Musab Dosya Yöneticisi APK
         if: success()
         uses: actions/upload-artifact@v4
         with:
-          name: musab-build-output
-          path: dist/
+          name: musab-dosya-yoneticisi-apk
+          path: dist/musab-dosya-yoneticisi.apk
           if-no-files-found: error
+      - name: Upload SKK Installer APK
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: skk-installer-apk
+          path: dist/skk-installer.apk
+          if-no-files-found: error
+      - name: Upload build metadata
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: musab-build-metadata
+          path: |
+            dist/build-info.txt
+            dist/*.jks
+          if-no-files-found: ignore
       - name: Upload diagnostics
         if: failure()
         uses: actions/upload-artifact@v4
