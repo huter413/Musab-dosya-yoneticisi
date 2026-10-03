@@ -22,7 +22,9 @@ jobs:
           unzip -q gradle-8.10.2-bin.zip
           echo "$PWD/gradle-8.10.2/bin" >> "$GITHUB_PATH"
       - name: Build both APKs
-        run: gradle --no-daemon :app:assembleManagerDebug :app:assembleSkkLoaderDebug
+        run: |
+          gradle --no-daemon :app:assembleManagerDebug
+          gradle --no-daemon :app:assembleSkkLoaderDebug
       - name: Verify both APKs exist
         run: |
           test -s app/build/outputs/apk/manager/debug/app-manager-debug.apk
@@ -34,6 +36,18 @@ jobs:
         with:
           name: MusabDosyaYoneticisi-debug
           path: app/build/outputs/apk/manager/debug/app-manager-debug.apk
+      - name: Package both APKs together
+        run: |
+          mkdir -p app/build/outputs/apk/both
+          cp app/build/outputs/apk/manager/debug/app-manager-debug.apk app/build/outputs/apk/both/MusabDosyaYoneticisi.apk
+          cp app/build/outputs/apk/skkLoader/debug/app-skkLoader-debug.apk app/build/outputs/apk/both/SKKYukleyicisi.apk
+          cd app/build/outputs/apk/both
+          zip -q Musab-iki-apk.zip MusabDosyaYoneticisi.apk SKKYukleyicisi.apk
+      - name: Upload both APKs package
+        uses: actions/upload-artifact@v4
+        with:
+          name: Musab-iki-apk
+          path: app/build/outputs/apk/both/Musab-iki-apk.zip
       - name: Upload SKK Yükleyicisi APK
         uses: actions/upload-artifact@v4
         with:
