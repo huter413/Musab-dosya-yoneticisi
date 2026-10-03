@@ -181,6 +181,10 @@ public class MusabArchiveViewerActivity extends Activity {
         row.setPadding(18,16,18,16);
         row.setBackgroundColor(Color.rgb(20,20,24));
         row.setOnClickListener(v -> openArchiveEntry(prefix + name));
+        row.setOnLongClickListener(v -> {
+            archiveEntryMenu(prefix + name);
+            return true;
+        });
         LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(-1, -2);
         lp.setMargins(0,1,0,1);
         list.addView(row, lp);
@@ -223,6 +227,127 @@ public class MusabArchiveViewerActivity extends Activity {
                 runOnUiThread(() -> Toast.makeText(this, "Dosya açılamadı: " + e.getMessage(), Toast.LENGTH_LONG).show());
             }
         }).start();
+    }
+
+    void archiveEntryMenu(String entryName) {
+        if (zip == null || entryName == null) return;
+        final String normalized = normalizeEntry(entryName);
+        final String lower = normalized.toLowerCase(Locale.ROOT);
+        String[] items = new String[]{
+                "Aç",
+                "İle aç",
+                "Android uygulamasıyla aç",
+                "Rastgele seç"
+        };
+        new AlertDialog.Builder(this, AlertDialog.THEME_DEVICE_DEFAULT_DARK)
+                .setTitle(new File(normalized).getName())
+                .setItems(items, (d, which) -> {
+                    if (which == 0) openArchiveEntry(normalized);
+                    else if (which == 1) archiveEntryOpenWith(normalized);
+                    else if (which == 2) archiveEntryExternalChooser(normalized, false);
+                    else archiveEntryExternalChooser(normalized, true);
+                })
+                .setNegativeButton("Kapat", null)
+                .show();
+    }
+
+    void archiveEntryOpenWith(String entryName) {
+        String n = normalizeEntry(entryName).toLowerCase(Locale.ROOT);
+        ArrayList<String> labels = new ArrayList<>();
+        ArrayList<Runnable> actions = new ArrayList<>();
+
+        labels.add("Musab Text");
+        actions.add(() -> openArchiveEntryAs(entryName, 0));
+        labels.add("Musab Görsel Görüntüleyici");
+        actions.add(() -> openArchiveEntryAs(entryName, 1));
+        labels.add("Musab Video Görüntüleyici");
+        actions.add(() -> openArchiveEntryAs(entryName, 2));
+        labels.add("Musab Ses Çalar");
+        actions.add(() -> openArchiveEntryAs(entryName, 3));
+        labels.add("Musab XML Görüntüleyici");
+        actions.add(() -> openArchiveEntryAs(entryName, 4));
+        labels.add("Musab Arşiv Görüntüleyici");
+        actions.add(() -> openArchiveEntryAs(entryName, 5));
+        labels.add("Classes.dex Görüntüle / Düzenle");
+        actions.add(() -> openArchiveEntryAs(entryName, 6));
+        labels.add("resources.arsc Görüntüle / Düzenle");
+        actions.add(() -> openArchiveEntryAs(entryName, 7));
+        labels.add("3D Model Görüntüle");
+        actions.add(() -> openArchiveEntryAs(entryName, 8));
+        labels.add("Android uygulamasıyla aç");
+        actions.add(() -> archiveEntryExternalChooser(entryName, false));
+        labels.add("Rastgele seç");
+        actions.add(() -> archiveEntryExternalChooser(entryName, true));
+
+        new AlertDialog.Builder(this, AlertDialog.THEME_DEVICE_DEFAULT_DARK)
+                .setTitle("İle aç")
+                .setItems(labels.toArray(new String[0]), (d, which) -> actions.get(which).run())
+                .setNegativeButton("Kapat", null)
+                .show();
+    }
+
+    void openArchiveEntryAs(String entryName, int mode) {
+        new Thread(() -> {
+            File temp = null;
+            try {
+                ZipEntry entry = findEntry(normalizeEntry(entryName));
+                if (entry == null || entry.isDirectory()) throw new IOException("Dosya bulunamadı");
+                temp = extractToCache(entry, normalizeEntry(entryName));
+                Intent i;
+                String lower = normalizeEntry(entryName).toLowerCase(Locale.ROOT);
+                if (mode == 1) i = new Intent(this, MusabImageViewerActivity.class);
+                else if (mode == 2) i = new Intent(this, MusabVideoViewerActivity.class);
+                else if (mode == 3) i = new Intent(this, MusabAudioPlayerActivity.class);
+                else if (mode == 4) i = new Intent(this, MusabXmlViewerActivity.class);
+                else if (mode == 5 || isArchiveName(lower)) i = new Intent(this, MusabArchiveViewerActivity.class);
+                else if (mode == 6 || lower.endsWith(".dex")) i = new Intent(this, DexEditorPlusActivity.class);
+                else if (mode == 7 || lower.endsWith(".arsc") || lower.endsWith("resources.arsc")) i = new Intent(this, ArscEditorPlusActivity.class);
+                else if (mode == 8) i = new Intent(this, Musab3DModelViewerActivity.class);
+                else i = new Intent(this, MusabTextActivity.class);
+                i.putExtra("path", temp.getAbsolutePath());
+                i.putExtra("archivePath", path);
+                i.putExtra("archiveEntry", normalizeEntry(entryName));
+                startActivity(i);
+            } catch (Exception e) {
+                if (temp != null) temp.delete();
+                runOnUiThread(() -> Toast.makeText(this, "Dosya açılamadı: " + e.getMessage(), Toast.LENGTH_LONG).show());
+            }
+        }).start();
+    }
+
+    boolean isArchiveName(String n) {
+        return n.endsWith(".zip") || n.endsWith(".jar") || n.endsWith(".apk") ||
+               n.endsWith(".aab") || n.endsWith(".xapk") || n.endsWith(".apks");
+    }
+
+    void archiveEntryExternalChooser(String entryName, boolean random) {
+        new Thread(() -> {
+            File temp = null;
+            try {
+                ZipEntry entry = findEntry(normalizeEntry(entryName));
+                if (entry == null || entry.isDirectory()) throw new IOException("Dosya bulunamadı");
+                temp = extractToCache(entry, normalizeEntry(entryName));
+                File chosen = temp;
+                Uri u = FileProvider.getUriForFile(this, getPackageName() + ".fileprovider", chosen);
+                Intent external = new Intent(Intent.ACTION_VIEW);
+                external.setDataAndType(u, random ? "*/*" : getMimeForName(normalizeEntry(entryName).toLowerCase(Locale.ROOT)));
+                external.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION | Intent.FLAG_GRANT_WRITE_URI_PERMISSION);
+                startActivity(Intent.createChooser(external, random ? "Uygulama seç" : "Android uygulamasıyla aç"));
+            } catch (Exception e) {
+                if (temp != null) temp.delete();
+                runOnUiThread(() -> Toast.makeText(this, "Uygulama seçicisi açılamadı: " + e.getMessage(), Toast.LENGTH_LONG).show());
+            }
+        }).start();
+    }
+
+    String getMimeForName(String n) {
+        if (isImage(n)) return "image/*";
+        if (isVideo(n)) return "video/*";
+        if (isAudio(n)) return "audio/*";
+        if (n.endsWith(".apk")) return "application/vnd.android.package-archive";
+        if (n.endsWith(".txt") || n.endsWith(".xml") || n.endsWith(".json") || n.endsWith(".smali") ||
+            n.endsWith(".java") || n.endsWith(".kt") || n.endsWith(".js") || n.endsWith(".html")) return "text/plain";
+        return "*/*";
     }
 
     File extractToCache(ZipEntry entry, String entryName) throws Exception {
