@@ -65,15 +65,21 @@ public class MusabTextActivity extends Activity {
         actions.setPadding(8,4,8,8);
         actions.setGravity(Gravity.CENTER_VERTICAL);
         actions.setMinimumHeight(76);
+        save.setMinHeight(64);
+        save.setTextSize(16);
+        save.setAllCaps(false);
         actions.addView(save,new LinearLayout.LayoutParams(0,64,1));
 
         Button exit=new Button(this);
         exit.setText("Çık");
         exit.setOnClickListener(v->confirmExit());
+        exit.setMinHeight(64);
+        exit.setTextSize(16);
+        exit.setAllCaps(false);
         actions.addView(exit,new LinearLayout.LayoutParams(0,64,1));
 
         // Alt çubuk sabit yükseklikte kırpılmasın: Kaydet ve Çık her zaman görünür kalsın.
-        root.addView(actions,new LinearLayout.LayoutParams(-1,-2));
+        root.addView(actions,new LinearLayout.LayoutParams(-1,76));
         setContentView(root);
 
         root.setOnApplyWindowInsetsListener((v, insets) -> {
@@ -85,7 +91,7 @@ public class MusabTextActivity extends Activity {
             }
             actions.setPadding(8,4,8,Math.max(10,bottom + 6));
             LinearLayout.LayoutParams lp=(LinearLayout.LayoutParams)actions.getLayoutParams();
-            lp.height=LinearLayout.LayoutParams.WRAP_CONTENT;
+            lp.height=Math.max(76, actions.getPaddingTop()+actions.getPaddingBottom()+64);
             actions.setLayoutParams(lp);
             actions.requestLayout();
             return insets;
