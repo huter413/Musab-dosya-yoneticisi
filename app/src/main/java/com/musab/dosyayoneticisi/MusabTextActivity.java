@@ -43,8 +43,13 @@ public class MusabTextActivity extends Activity {
         editor=new EditText(this);
         editor.setTextColor(Color.WHITE);
         editor.setTextSize(14);
+        editor.setIncludeFontPadding(false);
+        editor.setPadding(16,16,16,16);
+        editor.setLineSpacing(0f,1.0f);
         editor.setGravity(Gravity.TOP|Gravity.START);
         editor.setSingleLine(false);
+        editor.setVerticalScrollBarEnabled(true);
+        editor.setOverScrollMode(View.OVER_SCROLL_IF_CONTENT_SCROLLS);
         editor.setHorizontallyScrolling(false);
         editor.setInputType(android.text.InputType.TYPE_CLASS_TEXT | android.text.InputType.TYPE_TEXT_FLAG_MULTI_LINE | android.text.InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS);
         editor.setBackgroundColor(Color.rgb(24,24,28));
@@ -54,7 +59,9 @@ public class MusabTextActivity extends Activity {
         } catch(Exception e) {
             editor.setText("Okuma hatası: "+e.getMessage());
         }
-        root.addView(editor,new LinearLayout.LayoutParams(-1,0,1));
+        LinearLayout.LayoutParams editorLp=new LinearLayout.LayoutParams(-1,0,1);
+        editorLp.setMargins(0,0,0,0);
+        root.addView(editor,editorLp);
 
         LinearLayout actions=new LinearLayout(this);
         actions.setOrientation(LinearLayout.HORIZONTAL);
