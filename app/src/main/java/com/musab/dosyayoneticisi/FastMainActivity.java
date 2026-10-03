@@ -185,6 +185,14 @@ public class FastMainActivity extends MainActivity {
             labels.add("Musab 3D Model Görüntüleyici");
             actions.add(() -> open3DViewer(f));
         }
+        if (isDexFile(f.getName().toLowerCase(Locale.ROOT))) {
+            labels.add("Dex Editör Plus");
+            actions.add(() -> openDexEditorPlus(f));
+        }
+        if (isArscFile(f.getName().toLowerCase(Locale.ROOT))) {
+            labels.add("ARSC Editör Plus");
+            actions.add(() -> openArscEditorPlus(f));
+        }
 
         if (skkInstalled()) {
             labels.add("SKK Yükleyicisi");
@@ -343,6 +351,7 @@ public class FastMainActivity extends MainActivity {
         addToolRow(box, "AndroidManifest / XML düzenleyici", R.drawable.ic_tool_xml, () -> xmlEditor(), dialog);
         addToolRow(box, "Terminal", R.drawable.ic_tool_terminal, () -> terminal(), dialog);
         addToolRow(box, "MusabFolder'a git", R.drawable.ic_tool_folder, () -> { current = MUSAB; refresh(); }, dialog);
+        addToolRow(box, "Ana ekrana ekle", R.drawable.ic_launcher, this::pinMusabShortcut, dialog);
 
         dialog.show();
     }
@@ -414,6 +423,41 @@ public class FastMainActivity extends MainActivity {
         return x.endsWith(".obj") || x.endsWith(".stl") || x.endsWith(".ply");
     }
 
+    private boolean isDexFile(String x) { return x.endsWith(".dex"); }
+    private boolean isArscFile(String x) { return x.endsWith("resources.arsc") || x.endsWith(".arsc"); }
+
+    private void openDexEditorPlus(File f) {
+        Intent i = new Intent(this, DexEditorPlusActivity.class);
+        i.putExtra("path", f.getAbsolutePath());
+        startActivity(i);
+    }
+
+    private void openArscEditorPlus(File f) {
+        Intent i = new Intent(this, ArscEditorPlusActivity.class);
+        i.putExtra("path", f.getAbsolutePath());
+        startActivity(i);
+    }
+
+    private void pinMusabShortcut() {
+        if (Build.VERSION.SDK_INT < 26) {
+            toast("Ana ekrana kısayol ekleme bu Android sürümünde desteklenmiyor.");
+            return;
+        }
+        android.content.pm.ShortcutManager sm = getSystemService(android.content.pm.ShortcutManager.class);
+        if (sm == null || !sm.isRequestPinShortcutSupported()) {
+            toast("Başlatıcı ana ekran kısayolunu desteklemiyor.");
+            return;
+        }
+        android.content.pm.ShortcutInfo si = new android.content.pm.ShortcutInfo.Builder(this, "musab_home")
+                .setShortLabel("Musab Dosya Yöneticisi")
+                .setLongLabel("Musab Dosya Yöneticisi")
+                .setIcon(android.graphics.drawable.Icon.createWithResource(this, R.drawable.ic_launcher))
+                .setIntent(new Intent(this, FastMainActivity.class).setAction(Intent.ACTION_MAIN))
+                .build();
+        sm.requestPinShortcut(si, null);
+        toast("Ana ekrana ekleme isteği gönderildi.");
+    }
+
     private void addMenuItem(LinearLayout box, String label, int iconId, final Runnable action) {
         LinearLayout row = new LinearLayout(this);
         row.setOrientation(LinearLayout.HORIZONTAL);
@@ -446,6 +490,14 @@ public class FastMainActivity extends MainActivity {
 
         if (is3DModel(x)) {
             open3DViewer(f);
+            return;
+        }
+        if (isDexFile(x)) {
+            openDexEditorPlus(f);
+            return;
+        }
+        if (isArscFile(x)) {
+            openArscEditorPlus(f);
             return;
         }
 
