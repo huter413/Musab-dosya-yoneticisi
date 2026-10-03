@@ -32,6 +32,15 @@ public class SkkInstallerActivity extends Activity {
     @Override public void onCreate(Bundle b) {
         super.onCreate(b);
         sourceUri = getIntent() == null ? null : getIntent().getData();
+        if (sourceUri == null && getIntent() != null) {
+            String raw = getIntent().getStringExtra("skk_source_uri");
+            if (raw != null && !raw.trim().isEmpty()) {
+                try { sourceUri = Uri.parse(raw); } catch (Exception ignored) {}
+            }
+            if (sourceUri == null && getIntent().getClipData() != null && getIntent().getClipData().getItemCount() > 0) {
+                sourceUri = getIntent().getClipData().getItemAt(0).getUri();
+            }
+        }
         configureSmallWindow();
         showLoading();
         if (getIntent() != null && getIntent().hasExtra("installResult")) {
