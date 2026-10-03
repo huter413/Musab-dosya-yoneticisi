@@ -46,7 +46,7 @@ public class FastMainActivity extends MainActivity {
                 LinearLayout navLayout = (LinearLayout) nav;
                 if (navLayout.getChildCount() > 0 && navLayout.getChildAt(0) instanceof Button) {
                     ((Button) navLayout.getChildAt(0)).setOnClickListener(v -> {
-                        current = STORAGE;
+                        current = new File("/");
                         refresh();
                     });
                 }
@@ -103,7 +103,7 @@ public class FastMainActivity extends MainActivity {
     void navigate(String p) {
         String path = p == null ? "" : p.trim();
         if (path.isEmpty() || path.equals("/")) {
-            current = STORAGE;
+            current = new File("/");
             refresh();
             return;
         }
@@ -118,8 +118,7 @@ public class FastMainActivity extends MainActivity {
     @Override
     void requestStorageAccess() {
         if (Build.VERSION.SDK_INT < 30 || android.os.Environment.isExternalStorageManager()) {
-            current = STORAGE;
-            if (root != null && list != null) refresh();
+            if (current != null && current.equals(STORAGE) && root != null && list != null) refresh();
             return;
         }
         try {
@@ -140,8 +139,7 @@ public class FastMainActivity extends MainActivity {
     protected void onResume() {
         super.onResume();
         if (Build.VERSION.SDK_INT >= 30 && android.os.Environment.isExternalStorageManager()) {
-            current = STORAGE;
-            if (root != null && list != null) refresh();
+            if (current != null && current.equals(STORAGE) && root != null && list != null) refresh();
         }
         permissionHandler.postDelayed(this::maybeRequestNotifications, 350);
     }
