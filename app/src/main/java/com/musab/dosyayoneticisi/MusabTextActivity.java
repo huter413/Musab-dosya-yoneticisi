@@ -19,6 +19,9 @@ public class MusabTextActivity extends Activity {
 
     public void onCreate(Bundle b) {
         super.onCreate(b);
+        if (Build.VERSION.SDK_INT >= 30) getWindow().setDecorFitsSystemWindows(true);
+        getWindow().setNavigationBarColor(Color.rgb(12,12,14));
+        getWindow().setStatusBarColor(Color.rgb(12,12,14));
         String p=getIntent().getStringExtra("path");
         file=p==null?null:new File(p);
         archiveTemp=getIntent().getBooleanExtra("archiveTemp",false);
@@ -60,6 +63,7 @@ public class MusabTextActivity extends Activity {
         save.setOnClickListener(v->saveNow());
         actions.setPadding(8,4,8,8);
         actions.setGravity(Gravity.CENTER_VERTICAL);
+        actions.setMinimumHeight(76);
         actions.addView(save,new LinearLayout.LayoutParams(0,64,1));
 
         Button exit=new Button(this);
@@ -67,8 +71,21 @@ public class MusabTextActivity extends Activity {
         exit.setOnClickListener(v->confirmExit());
         actions.addView(exit,new LinearLayout.LayoutParams(0,64,1));
 
-        root.addView(actions);
+        root.addView(actions,new LinearLayout.LayoutParams(-1,76));
         setContentView(root);
+
+        root.setOnApplyWindowInsetsListener((v, insets) -> {
+            int bottom;
+            if (Build.VERSION.SDK_INT >= 30) {
+                bottom = insets.getInsets(android.view.WindowInsets.Type.navigationBars()).bottom;
+            } else {
+                bottom = insets.getSystemWindowInsetBottom();
+            }
+            actions.setPadding(8,4,8,Math.max(8,bottom + 4));
+            actions.requestLayout();
+            return insets;
+        });
+        root.requestApplyInsets();
     }
 
     String read() throws Exception {
