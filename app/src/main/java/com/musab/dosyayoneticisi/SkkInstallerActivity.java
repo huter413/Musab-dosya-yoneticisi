@@ -331,55 +331,87 @@ public class SkkInstallerActivity extends Activity {
         h.postDelayed(animate, 80);
     }
 
-    private void launchAndroidInstaller(ProgressBar bar, TextView installing) {
-        // Custom SKK UI: use Android's PackageInstaller session API directly.
-        // Do not launch ACTION_INSTALL_PACKAGE for SKK.
+    private void installApk() {
         if (apkFile == null || !apkFile.isFile()) {
-            showError("SKK paketi bulunamadı."); return;
+            showError("Kurulum dosyası bulunamadı.");
+            return;
         }
+
+        LinearLayout root = base();
+        TextView sparkle = text("✦  SKK Kuruluyor  ✦", 15, Color.rgb(190,170,255));
+        root.addView(sparkle, new LinearLayout.LayoutParams(-1, dp(30)));
+
+        ImageView icon = new ImageView(this);
+        if (targetIcon != null) icon.setImageDrawable(targetIcon);
+        else icon.setImageResource(android.R.drawable.sym_def_app_icon);
+        root.addView(icon, new LinearLayout.LayoutParams(dp(64), dp(64)));
+
+        TextView name = text(targetName, 19, Color.WHITE);
+        root.addView(name, new LinearLayout.LayoutParams(-1, dp(36)));
+
+        TextView installing = text("Özel SKK paket yöneticisine ekleniyor...", 14, Color.LTGRAY);
+        root.addView(installing, new LinearLayout.LayoutParams(-1, dp(40)));
+
+        ProgressBar bar = new ProgressBar(this, null, android.R.attr.progressBarStyleHorizontal);
+        bar.setMax(100);
+        bar.setProgress(0);
+        root.addView(bar, new LinearLayout.LayoutParams(-1, dp(10)));
+
+        TextView note = text("Android Paket Yükleyicisi kullanılmıyor.", 13, Color.rgb(210,210,220));
+        note.setPadding(0, dp(12), 0, 0);
+        root.addView(note, new LinearLayout.LayoutParams(-1, dp(34)));
+
+        setContentView(root);
+        resizeWindow();
+
         new Thread(() -> {
-            PackageInstaller.Session session = null;
             try {
-                PackageInstaller installer = getPackageManager().getPackageInstaller();
-                PackageInstaller.SessionParams params = new PackageInstaller.SessionParams(
-                        PackageInstaller.SessionParams.MODE_FULL_INSTALL);
-                // SKK'nin kendi özel arayüzünden sonra doğrudan PackageInstaller
-                // oturumunu kullan. ACTION_INSTALL_PACKAGE kesinlikle kullanılmaz.
-                // Android izin veriyorsa sistem onay ekranını da atlamasını isteriz;
-                // normal uygulamalarda Android bunu güvenlik nedeniyle reddedebilir.
-                if (Build.VERSION.SDK_INT >= 31) {
-                    params.setRequireUserAction(PackageInstaller.SessionParams.USER_ACTION_NOT_REQUIRED);
+                File installedRoot = new File(getExternalFilesDir(null), "SKK/installed");
+                if (!installedRoot.exists() && !installedRoot.mkdirs()) {
+                    throw new IOException("SKK kurulum klasörü oluşturulamadı.");
                 }
-                if (updateMode) params.setInstallReason(PackageManager.INSTALL_REASON_USER);
-                if (targetPackage != null) params.setAppPackageName(targetPackage);
-                int sid = installer.createSession(params);
-                session = installer.openSession(sid);
-                installSession = session;
-                try (InputStream in = new FileInputStream(apkFile);
-                     OutputStream out = session.openWrite("base.apk", 0, apkFile.length())) {
-                    byte[] buf = new byte[8192]; int n; long done = 0;
-                    while ((n = in.read(buf)) != -1) {
-                        out.write(buf, 0, n); done += n;
-                        final int pp = (int)Math.min(95, done * 95L / Math.max(1, apkFile.length()));
-                        runOnUiThread(() -> bar.setProgress(pp));
-                    }
-                    session.fsync(out);
+                String safe = (targetPackage == null || targetPackage.trim().isEmpty())
+                        ? ("package-" + System.currentTimeMillis())
+                        : targetPackage.replaceAll("[^A-Za-z0-9._-]", "_");
+                File target = new File(installedRoot, safe + ".skk");
+                File tmp = new File(installedRoot, safe + ".skk.part");
+                copyFileWithProgress(apkFile, tmp, bar);
+                if (target.exists() && !target.delete()) throw new IOException("Eski SKK paketi silinemedi.");
+                if (!tmp.renameTo(target)) throw new IOException("SKK paketi kurulum alanına taşınamadı.");
+
+                File meta = new File(installedRoot, safe + ".info");
+                try (FileWriter w = new FileWriter(meta, false)) {
+                    w.write("name=" + targetName + "\n");
+                    w.write("package=" + (targetPackage == null ? "" : targetPackage) + "\n");
+                    w.write("version=" + incomingVersion + "\n");
+                    w.write("installedAt=" + System.currentTimeMillis() + "\n");
                 }
-                Intent callback = new Intent(this, SkkInstallReceiver.class);
-                callback.setAction("com.musab.dosyayoneticisi.SKK_INSTALL_RESULT");
-                callback.putExtra("sessionId", sid);
-                PendingIntent pi = PendingIntent.getBroadcast(this, sid, callback,
-                        PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_MUTABLE);
-                session.commit(pi.getIntentSender());
+
                 runOnUiThread(() -> {
                     bar.setProgress(100);
-                    installing.setText("SKK kurulumu tamamlanıyor...");
+                    installing.setText("SKK özel yükleyiciye kuruldu.");
+                    note.setText("Kurulum tamamlandı. Android sistem yükleyicisi çağrılmadı.");
                 });
             } catch (Exception e) {
-                if (session != null) try { session.abandon(); } catch (Exception ignored) {}
-                runOnUiThread(() -> showError("Özel SKK kurulumu başlatılamadı: " + e.getMessage()));
+                runOnUiThread(() -> showError("Özel SKK kurulumu başarısız: " + e.getMessage()));
             }
         }).start();
+    }
+
+    private void copyFileWithProgress(File src, File dst, ProgressBar bar) throws Exception {
+        long total = Math.max(1, src.length());
+        try (InputStream in = new FileInputStream(src);
+             OutputStream out = new BufferedOutputStream(new FileOutputStream(dst, false))) {
+            byte[] buf = new byte[8192];
+            long done = 0;
+            int n;
+            while ((n = in.read(buf)) != -1) {
+                out.write(buf, 0, n);
+                done += n;
+                final int p = (int)Math.min(100, done * 100L / total);
+                runOnUiThread(() -> bar.setProgress(p));
+            }
+        }
     }
 
     private void deleteTemp() {
