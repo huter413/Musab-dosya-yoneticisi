@@ -116,8 +116,21 @@ public class FastMainActivity extends MainActivity {
      */
     @Override
     void requestStorageAccess() {
-        current = current == null ? new File("/") : current;
-        super.requestStorageAccess();
+        // İlk açılışta kullanıcı doğrudan sistemin "Tüm dosyalara erişim"
+        // ekranına gönderilir. Kullanıcı izin verdikten sonra dosya yöneticisi
+        // depolamadaki erişilebilir klasör ve dosyaları gösterebilir.
+        try {
+            Intent intent = new Intent(
+                    Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION,
+                    Uri.parse("package:" + getPackageName()));
+            startActivity(intent);
+        } catch (Exception ignored) {
+            try {
+                startActivity(new Intent(Settings.ACTION_MANAGE_ALL_FILES_ACCESS_PERMISSION));
+            } catch (Exception ignoredAgain) {
+                // Sistem bu ekranı sağlamıyorsa uygulama normal şekilde devam eder.
+            }
+        }
         if (root != null && list != null) refresh();
     }
 
