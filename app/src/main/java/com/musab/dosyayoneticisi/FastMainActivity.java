@@ -103,7 +103,7 @@ public class FastMainActivity extends MainActivity {
     void navigate(String p) {
         String path = p == null ? "" : p.trim();
         if (path.isEmpty() || path.equals("/")) {
-            current = new File("/");
+            current = STORAGE;
             refresh();
             return;
         }
@@ -117,9 +117,11 @@ public class FastMainActivity extends MainActivity {
      */
     @Override
     void requestStorageAccess() {
-        // İlk açılışta kullanıcı doğrudan sistemin "Tüm dosyalara erişim"
-        // ekranına gönderilir. Kullanıcı izin verdikten sonra dosya yöneticisi
-        // depolamadaki erişilebilir klasör ve dosyaları gösterebilir.
+        if (Build.VERSION.SDK_INT < 30 || android.os.Environment.isExternalStorageManager()) {
+            current = STORAGE;
+            if (root != null && list != null) refresh();
+            return;
+        }
         try {
             Intent intent = new Intent(
                     Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION,
@@ -132,14 +134,15 @@ public class FastMainActivity extends MainActivity {
                 // Sistem bu ekranı sağlamıyorsa uygulama normal şekilde devam eder.
             }
         }
-        if (root != null && list != null) refresh();
     }
 
     @Override
     protected void onResume() {
         super.onResume();
-        // İlk açılışta requestStorageAccess() izin ekranını gösterir.
-        // Burada tekrar tekrar ayar ekranı açılmasını engelliyoruz.
+        if (Build.VERSION.SDK_INT >= 30 && android.os.Environment.isExternalStorageManager()) {
+            current = STORAGE;
+            if (root != null && list != null) refresh();
+        }
         permissionHandler.postDelayed(this::maybeRequestNotifications, 350);
     }
 
