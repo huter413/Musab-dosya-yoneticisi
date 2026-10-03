@@ -52,7 +52,7 @@ public class FastMainActivity extends MainActivity {
                 }
             }
         }
-        current = new File("/");
+        current = STORAGE;
         refresh();
         restoreLargerUi();
     }
