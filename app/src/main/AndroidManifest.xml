@@ -23,6 +23,9 @@
    </intent-filter>
   </activity>
   <activity android:name=".MusabBuildActivity" android:exported="false"/>
+  <activity android:name=".BinaryEditorPlusActivity" android:exported="false"/>
+  <activity android:name=".DexEditorPlusActivity" android:exported="false" android:label="Dex Editör Plus"/>
+  <activity android:name=".ArscEditorPlusActivity" android:exported="false" android:label="ARSC Editör Plus"/>
   <activity android:name=".SkkInstallerActivity" android:exported="true">
    <intent-filter>
     <action android:name="android.intent.action.VIEW"/>
