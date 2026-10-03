@@ -175,9 +175,9 @@ public class SkkInstallerActivity extends Activity {
             PackageInfo installed = pm.getPackageInfo(targetPackage, flags);
             installedVersion = Build.VERSION.SDK_INT >= 28 ? installed.getLongVersionCode() : installed.versionCode;
             updateMode = true;
-            if (incomingVersion <= installedVersion) {
-                throw new IllegalStateException("Bu paket kurulu sürümden yeni değil.");
-            }
+            // Paket zaten kuruluysa her zaman güncelleme onayı gösterilir.
+            // Sürüm aynı/eski olsa bile "Evet" yerine "Güncelle" görünür;
+            // kullanıcı onay vermeden hiçbir kurulum işlemi yapılmaz.
             if (!sameSigner(pi, installed)) {
                 throw new IllegalStateException("Güncelleme reddedildi: mevcut uygulamanın imzası ile .skk paketi aynı değil.");
             }
@@ -279,7 +279,10 @@ public class SkkInstallerActivity extends Activity {
             deleteTemp();
             finish();
         });
-        yes.setOnClickListener(v -> installApk());
+        yes.setOnClickListener(v -> {
+            // Kurulum/güncelleme yalnızca kullanıcı açıkça onayladığında başlar.
+            installApk();
+        });
 
         setContentView(root);
         resizeWindow();
