@@ -110,22 +110,22 @@ public class FastMainActivity extends MainActivity {
     }
 
     /*
-     * Android'de / kök dosya sistemi ve /system gibi sistem dizinleri için
-     * uygulama başlangıcında izin/ayar ekranı açılmaz. Kullanıcı zaten erişebildiği
-     * yolları doğrudan görebilir; erişilemeyen bir sistem dizini için de uygulama
-     * izin penceresi zorlamaz.
+     * İlk açılışta dosya erişimi isteme ekranı korunur. Kullanıcıya ZArchiver
+     * benzeri şekilde tüm dosyalara erişim veya klasör seçme seçeneği gösterilir.
+     * İzin verildikten sonra dosya yöneticisi / kök dizinde çalışmaya devam eder.
      */
     @Override
     void requestStorageAccess() {
         current = current == null ? new File("/") : current;
+        super.requestStorageAccess();
         if (root != null && list != null) refresh();
     }
 
     @Override
     protected void onResume() {
         super.onResume();
-        // Başlangıçta MANAGE_EXTERNAL_STORAGE / SAF / sistem ayarları açılmaz.
-        // Bildirim izni dosya erişiminden bağımsızdır.
+        // İlk açılışta requestStorageAccess() izin ekranını gösterir.
+        // Burada tekrar tekrar ayar ekranı açılmasını engelliyoruz.
         permissionHandler.postDelayed(this::maybeRequestNotifications, 350);
     }
 
