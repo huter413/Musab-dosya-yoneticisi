@@ -292,52 +292,6 @@ public class SkkInstallerActivity extends Activity {
         }
 
         LinearLayout root = base();
-        TextView sparkle = text(updateMode ? "✦  Güncelleniyor  ✦" : "✦  Kuruluyor  ✦", 15, Color.rgb(190,170,255));
-        root.addView(sparkle, new LinearLayout.LayoutParams(-1, dp(30)));
-
-        ImageView icon = new ImageView(this);
-        if (targetIcon != null) icon.setImageDrawable(targetIcon);
-        else icon.setImageResource(android.R.drawable.sym_def_app_icon);
-        root.addView(icon, new LinearLayout.LayoutParams(dp(64), dp(64)));
-
-        TextView name = text(targetName, 19, Color.WHITE);
-        root.addView(name, new LinearLayout.LayoutParams(-1, dp(36)));
-
-        TextView installing = text(updateMode ? "Güncelleme başlatılıyor..." : "Kurulum başlatılıyor...", 14, Color.LTGRAY);
-        root.addView(installing, new LinearLayout.LayoutParams(-1, dp(32)));
-
-        ProgressBar bar = new ProgressBar(this, null, android.R.attr.progressBarStyleHorizontal);
-        bar.setMax(100);
-        bar.setProgress(0);
-        root.addView(bar, new LinearLayout.LayoutParams(-1, dp(10)));
-
-        TextView note = text("♡  Lütfen bekle  ♡", 13, Color.rgb(210,210,220));
-        note.setPadding(0, dp(12), 0, 0);
-        root.addView(note, new LinearLayout.LayoutParams(-1, dp(34)));
-
-        setContentView(root);
-        resizeWindow();
-
-        final Handler h = new Handler(Looper.getMainLooper());
-        final int[] p = {0};
-        Runnable animate = new Runnable() {
-            @Override public void run() {
-                p[0] = Math.min(92, p[0] + 4);
-                bar.setProgress(p[0]);
-                if (p[0] < 92) h.postDelayed(this, 80);
-                else launchAndroidInstaller(bar, installing);
-            }
-        };
-        h.postDelayed(animate, 80);
-    }
-
-    private void installApk() {
-        if (apkFile == null || !apkFile.isFile()) {
-            showError("Kurulum dosyası bulunamadı.");
-            return;
-        }
-
-        LinearLayout root = base();
         TextView sparkle = text("✦  SKK Kuruluyor  ✦", 15, Color.rgb(190,170,255));
         root.addView(sparkle, new LinearLayout.LayoutParams(-1, dp(30)));
 
@@ -357,7 +311,7 @@ public class SkkInstallerActivity extends Activity {
         bar.setProgress(0);
         root.addView(bar, new LinearLayout.LayoutParams(-1, dp(10)));
 
-        TextView note = text("Android Paket Yükleyicisi kullanılmıyor.", 13, Color.rgb(210,210,220));
+        TextView note = text("Android PaketInstaller / ACTION_INSTALL_PACKAGE kullanılmıyor.", 13, Color.rgb(210,210,220));
         note.setPadding(0, dp(12), 0, 0);
         root.addView(note, new LinearLayout.LayoutParams(-1, dp(34)));
 
@@ -375,9 +329,14 @@ public class SkkInstallerActivity extends Activity {
                         : targetPackage.replaceAll("[^A-Za-z0-9._-]", "_");
                 File target = new File(installedRoot, safe + ".skk");
                 File tmp = new File(installedRoot, safe + ".skk.part");
+
                 copyFileWithProgress(apkFile, tmp, bar);
-                if (target.exists() && !target.delete()) throw new IOException("Eski SKK paketi silinemedi.");
-                if (!tmp.renameTo(target)) throw new IOException("SKK paketi kurulum alanına taşınamadı.");
+                if (target.exists() && !target.delete()) {
+                    throw new IOException("Eski SKK paketi silinemedi.");
+                }
+                if (!tmp.renameTo(target)) {
+                    throw new IOException("SKK paketi kurulum alanına taşınamadı.");
+                }
 
                 File meta = new File(installedRoot, safe + ".info");
                 try (FileWriter w = new FileWriter(meta, false)) {
