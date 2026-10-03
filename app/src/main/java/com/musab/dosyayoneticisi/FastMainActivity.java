@@ -170,6 +170,10 @@ public class FastMainActivity extends MainActivity {
         actions.add(() -> openXmlViewer(f));
         labels.add("Musab Arşiv Görüntüleyici");
         actions.add(() -> openArchiveViewer(f));
+        if (is3DModel(f.getName().toLowerCase(Locale.ROOT))) {
+            labels.add("Musab 3D Model Görüntüleyici");
+            actions.add(() -> open3DViewer(f));
+        }
 
         if (skkInstalled()) {
             labels.add("SKK Yükleyicisi");
@@ -228,6 +232,12 @@ public class FastMainActivity extends MainActivity {
 
     private void openAudioPlayer(File f) {
         Intent i = new Intent(this, MusabAudioPlayerActivity.class);
+        i.putExtra("path", f.getAbsolutePath());
+        startActivity(i);
+    }
+
+    private void open3DViewer(File f) {
+        Intent i = new Intent(this, Musab3DModelViewerActivity.class);
         i.putExtra("path", f.getAbsolutePath());
         startActivity(i);
     }
@@ -389,6 +399,10 @@ public class FastMainActivity extends MainActivity {
                 .show();
     }
 
+    private boolean is3DModel(String x) {
+        return x.endsWith(".obj") || x.endsWith(".stl") || x.endsWith(".ply");
+    }
+
     private void addMenuItem(LinearLayout box, String label, int iconId, final Runnable action) {
         LinearLayout row = new LinearLayout(this);
         row.setOrientation(LinearLayout.HORIZONTAL);
@@ -418,6 +432,11 @@ public class FastMainActivity extends MainActivity {
     void openFile(File f) {
         if (f == null) return;
         String x = f.getName().toLowerCase(Locale.ROOT);
+
+        if (is3DModel(x)) {
+            open3DViewer(f);
+            return;
+        }
 
         if (isArchive(x) || isSkk(x)) {
             super.openFile(f);
