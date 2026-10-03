@@ -539,13 +539,8 @@ public class FastMainActivity extends MainActivity {
             File output = uniqueApkFile(new File(APKS, safe + ".apk"));
             copyRecursive(new File(ai.sourceDir), output);
 
-            if (ai.splitSourceDirs != null) {
-                for (int n = 0; n < ai.splitSourceDirs.length; n++) {
-                    File split = new File(APKS, safe + "-split-" + (n + 1) + ".apk");
-                    split = uniqueApkFile(split);
-                    copyRecursive(new File(ai.splitSourceDirs[n]), split);
-                }
-            }
+            // APK çıkarma işlemi tek bir APK dosyası üretir.
+            // Split APK parçaları ayrı dosya olarak çıkarılmaz.
             toast("APK çıkarıldı: " + output.getAbsolutePath());
         } catch (Exception e) {
             toast("APK çıkarma hatası: " + e.getMessage());
