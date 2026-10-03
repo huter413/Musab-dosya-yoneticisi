@@ -193,6 +193,8 @@ public class FastMainActivity extends MainActivity {
 
         labels.add("Android uygulamasıyla aç");
         actions.add(() -> openExternalChooser(f));
+        labels.add("Rastgele seç");
+        actions.add(() -> openRandomChooser(f));
         labels.add("APK / JAR / Derleme merkezi");
         actions.add(() -> openBuild(f));
         labels.add("APK'ya imzala");
@@ -268,6 +270,18 @@ public class FastMainActivity extends MainActivity {
             startActivity(Intent.createChooser(external, "Android uygulamasıyla aç"));
         } catch (Exception e) {
             toast("Uygulama bulunamadı: " + e.getMessage());
+        }
+    }
+
+    private void openRandomChooser(File f) {
+        try {
+            Uri u = FileProvider.getUriForFile(this, getPackageName() + ".fileprovider", f);
+            Intent external = new Intent(Intent.ACTION_VIEW);
+            external.setDataAndType(u, "*/*");
+            external.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION | Intent.FLAG_GRANT_WRITE_URI_PERMISSION);
+            startActivity(Intent.createChooser(external, "Uygulama seç"));
+        } catch (Exception e) {
+            toast("Android uygulama seçicisi açılamadı: " + e.getMessage());
         }
     }
 
