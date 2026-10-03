@@ -13,7 +13,7 @@ import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
-import android.provider.Settings;
+import android.view.Gravity;
 import android.view.MotionEvent;
 import android.view.View;
 import android.widget.Button;
@@ -26,11 +26,9 @@ import java.io.File;
 import java.util.ArrayList;
 import java.util.Locale;
 
-/** Launcher entry point with stable touch handling and no recursive startup folder scan. */
 public class FastMainActivity extends MainActivity {
     private static final int REQ_NOTIFICATIONS = 7001;
     private final Handler permissionHandler = new Handler(Looper.getMainLooper());
-    private boolean storageSettingsOpened;
     private boolean notificationAsked;
     private float gestureDownX;
     private float gestureDownY;
@@ -47,7 +45,7 @@ public class FastMainActivity extends MainActivity {
                 LinearLayout navLayout = (LinearLayout) nav;
                 if (navLayout.getChildCount() > 0 && navLayout.getChildAt(0) instanceof Button) {
                     ((Button) navLayout.getChildAt(0)).setOnClickListener(v -> {
-                        current = STORAGE;
+                        current = new File("/");
                         refresh();
                     });
                 }
@@ -65,18 +63,18 @@ public class FastMainActivity extends MainActivity {
             float dx = event.getRawX() - gestureDownX;
             float dy = event.getRawY() - gestureDownY;
             if (dx > 120f && Math.abs(dx) > Math.abs(dy) * 1.25f) {
-                if (current != null && !isStorageRoot()) goParent();
+                if (current != null && !isFilesystemRoot()) goParent();
                 return true;
             }
         }
         return super.dispatchTouchEvent(event);
     }
 
-    private boolean isStorageRoot() {
+    private boolean isFilesystemRoot() {
         try {
-            return current != null && current.getCanonicalFile().equals(STORAGE.getCanonicalFile());
+            return current != null && current.getCanonicalFile().equals(new File("/").getCanonicalFile());
         } catch (Exception e) {
-            return current != null && current.equals(STORAGE);
+            return current != null && current.equals(new File("/"));
         }
     }
 
@@ -96,10 +94,52 @@ public class FastMainActivity extends MainActivity {
 
     @Override
     public void onBackPressed() {
-        if (current != null && !isStorageRoot()) goParent();
+        if (current != null && !isFilesystemRoot()) goParent();
         else super.onBackPressed();
     }
 
+    @Override
+    void navigate(String p) {
+        String path = p == null ? "" : p.trim();
+        if (path.isEmpty() || path.equals("/")) {
+            current = new File("/");
+            refresh();
+            return;
+        }
+        super.navigate(path);
+    }
+
+    /*
+     * Android'de / kök dosya sistemi ve /system gibi sistem dizinleri için
+     * uygulama başlangıcında izin/ayar ekranı açılmaz. Kullanıcı zaten erişebildiği
+     * yolları doğrudan görebilir; erişilemeyen bir sistem dizini için de uygulama
+     * izin penceresi zorlamaz.
+     */
+    @Override
+    void requestStorageAccess() {
+        current = current == null ? new File("/") : current;
+        if (root != null && list != null) refresh();
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        // Başlangıçta MANAGE_EXTERNAL_STORAGE / SAF / sistem ayarları açılmaz.
+        // Bildirim izni dosya erişiminden bağımsızdır.
+        permissionHandler.postDelayed(this::maybeRequestNotifications, 350);
+    }
+
+    private void maybeRequestNotifications() {
+        if (notificationAsked || Build.VERSION.SDK_INT < 33) return;
+        if (checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED) {
+            notificationAsked = true;
+            return;
+        }
+        notificationAsked = true;
+        requestPermissions(new String[]{Manifest.permission.POST_NOTIFICATIONS}, REQ_NOTIFICATIONS);
+    }
+
+    @Override
     void openWithOptions(File f) {
         if (f == null) return;
         ArrayList<String> labels = new ArrayList<>();
@@ -127,8 +167,6 @@ public class FastMainActivity extends MainActivity {
         actions.add(() -> openExternalChooser(f));
         labels.add("APK / JAR / Derleme merkezi");
         actions.add(() -> openBuild(f));
-
-        // Dosya menüsündeki araçların tamamı "İle aç" ekranında da erişilebilir.
         labels.add("APK'ya imzala");
         actions.add(() -> apkSignDialog(f));
         labels.add("Decompile APK");
@@ -149,10 +187,6 @@ public class FastMainActivity extends MainActivity {
                 .setItems(labels.toArray(new String[0]), (d, which) -> actions.get(which).run())
                 .setNegativeButton("Kapat", null)
                 .show();
-    }
-
-    private boolean isXml(String x) {
-        return x.endsWith(".xml") || x.endsWith(".sxml");
     }
 
     private void openTextViewer(File f) {
@@ -204,92 +238,8 @@ public class FastMainActivity extends MainActivity {
     }
 
     @Override
-    void navigate(String p) {
-        String path = p == null ? "" : p.trim();
-        if (path.isEmpty() || path.equals("/") || path.equals("/storage") || path.equals("/storage/emulated")) {
-            current = STORAGE;
-            refresh();
-            return;
-        }
-        super.navigate(p);
-    }
-
-    @Override
     long directorySize(File dir) {
-        if (dir == null || !dir.isDirectory()) return dir == null ? 0 : dir.length();
         return 0;
-    }
-
-    @Override
-    protected void onResume() {
-        super.onResume();
-        // Önce gerçek kök erişimini dene. /storage/emulated/0 listelenebiliyorsa
-        // Ayarlar ekranını zorla açma; doğrudan köke gir.
-        if (canBrowseStorageRoot()) {
-            permissionHandler.postDelayed(this::maybeRequestNotifications, 500);
-            return;
-        }
-        if (Build.VERSION.SDK_INT >= 30 && !android.os.Environment.isExternalStorageManager()) {
-            if (!storageSettingsOpened) {
-                storageSettingsOpened = true;
-                permissionHandler.postDelayed(this::openAllFilesSettings, 250);
-            }
-            return;
-        }
-        permissionHandler.postDelayed(this::maybeRequestNotifications, 500);
-    }
-
-    private boolean canBrowseStorageRoot() {
-        try {
-            File rootDir = android.os.Environment.getExternalStorageDirectory();
-            return rootDir != null && rootDir.isDirectory() && rootDir.canRead()
-                    && rootDir.listFiles() != null;
-        } catch (Exception e) {
-            return false;
-        }
-    }
-
-    @Override
-    void requestStorageAccess() {
-        // Kök zaten okunabiliyorsa hiçbir izin ekranı açma.
-        if (canBrowseStorageRoot()) {
-            current = android.os.Environment.getExternalStorageDirectory();
-            if (root != null && list != null) refresh();
-            return;
-        }
-        if (Build.VERSION.SDK_INT >= 30 && !android.os.Environment.isExternalStorageManager()) {
-            if (!storageSettingsOpened) {
-                storageSettingsOpened = true;
-                openAllFilesSettings();
-            }
-        } else if (Build.VERSION.SDK_INT >= 23 && Build.VERSION.SDK_INT <= 32
-                && checkSelfPermission("android.permission.READ_EXTERNAL_STORAGE") != PackageManager.PERMISSION_GRANTED) {
-            requestPermissions(new String[]{"android.permission.READ_EXTERNAL_STORAGE"}, REQ_STORAGE);
-        }
-    }
-
-    private void maybeRequestNotifications() {
-        if (notificationAsked || Build.VERSION.SDK_INT < 33) return;
-        if (checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED) {
-            notificationAsked = true;
-            return;
-        }
-        notificationAsked = true;
-        requestPermissions(new String[]{Manifest.permission.POST_NOTIFICATIONS}, REQ_NOTIFICATIONS);
-    }
-
-    void openAllFilesSettings() {
-        try {
-            Intent i = new Intent(Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION,
-                    Uri.parse("package:" + getPackageName()));
-            startActivity(i);
-        } catch (Exception e) {
-            try {
-                startActivity(new Intent(Settings.ACTION_MANAGE_ALL_FILES_ACCESS_PERMISSION));
-            } catch (Exception ignored) {
-                toast("Dosya erişimi ekranı açılamadı");
-            }
-        }
     }
 
     private void restoreLargerUi() {
@@ -299,6 +249,7 @@ public class FastMainActivity extends MainActivity {
             TextView t = (TextView) title;
             t.setText("Musab Dosya Yöneticisi");
             t.setTextSize(29);
+            t.setGravity(Gravity.CENTER_VERTICAL);
             t.setPadding(14, 18, 14, 12);
         }
         View nav = root.getChildAt(1);
@@ -314,10 +265,13 @@ public class FastMainActivity extends MainActivity {
             View child = row.getChildAt(i);
             if (child instanceof Button) {
                 ((Button) child).setTextSize(16);
+                ((Button) child).setGravity(Gravity.CENTER);
+                ((Button) child).setIncludeFontPadding(false);
                 child.getLayoutParams().height = 76;
                 child.requestLayout();
             } else if (child instanceof EditText) {
                 ((EditText) child).setTextSize(19);
+                ((EditText) child).setGravity(Gravity.CENTER_VERTICAL);
             }
         }
     }
@@ -327,6 +281,8 @@ public class FastMainActivity extends MainActivity {
             View child = row.getChildAt(i);
             if (child instanceof Button) {
                 ((Button) child).setTextSize(16);
+                ((Button) child).setGravity(Gravity.CENTER);
+                ((Button) child).setIncludeFontPadding(false);
                 child.getLayoutParams().height = 76;
                 child.requestLayout();
             }
@@ -334,10 +290,66 @@ public class FastMainActivity extends MainActivity {
     }
 
     @Override
+    void toolsDialog() {
+        LinearLayout box = new LinearLayout(this);
+        box.setOrientation(LinearLayout.VERTICAL);
+        box.setPadding(8, 10, 8, 10);
+
+        AlertDialog dialog = new AlertDialog.Builder(this, AlertDialog.THEME_DEVICE_DEFAULT_DARK)
+                .setTitle("Musab Araçları")
+                .setView(box)
+                .setNegativeButton("Kapat", null)
+                .create();
+
+        addToolRow(box, "APK Çıkar / Uygulamalar", R.drawable.ic_tool_apk, () -> apps(), dialog);
+        addToolRow(box, "APK Arşiv İçeriği", R.drawable.ic_tool_archive, () -> apkContentsDialog(), dialog);
+        addToolRow(box, "Python düzenleyici", R.drawable.ic_tool_python, () -> codeEditor("Python"), dialog);
+        addToolRow(box, "IPython düzenleyici", R.drawable.ic_tool_ipython, () -> codeEditor("IPython"), dialog);
+        addToolRow(box, "Pillow düzenleyici", R.drawable.ic_tool_pillow, () -> codeEditor("Pillow"), dialog);
+        addToolRow(box, "AndroidManifest / XML düzenleyici", R.drawable.ic_tool_xml, () -> xmlEditor(), dialog);
+        addToolRow(box, "Terminal", R.drawable.ic_tool_terminal, () -> terminal(), dialog);
+        addToolRow(box, "MusabFolder'a git", R.drawable.ic_tool_folder, () -> { current = MUSAB; refresh(); }, dialog);
+
+        dialog.show();
+    }
+
+    private void addToolRow(LinearLayout box, String title, int iconId, final Runnable action, final AlertDialog dialog) {
+        LinearLayout row = new LinearLayout(this);
+        row.setOrientation(LinearLayout.HORIZONTAL);
+        row.setGravity(Gravity.CENTER_VERTICAL);
+        row.setPadding(12, 6, 12, 6);
+
+        ImageView icon = new ImageView(this);
+        icon.setImageResource(iconId);
+        icon.setScaleType(ImageView.ScaleType.CENTER_INSIDE);
+        row.addView(icon, new LinearLayout.LayoutParams(58, 72));
+
+        TextView label = new TextView(this);
+        label.setText(title);
+        label.setTextColor(Color.WHITE);
+        label.setTextSize(17);
+        label.setGravity(Gravity.CENTER_VERTICAL | Gravity.LEFT);
+        label.setIncludeFontPadding(false);
+        label.setMaxLines(2);
+        label.setEllipsize(android.text.TextUtils.TruncateAt.END);
+        label.setPadding(16, 0, 10, 0);
+        row.addView(label, new LinearLayout.LayoutParams(0, 72, 1));
+
+        row.setBackgroundColor(Color.rgb(24, 24, 28));
+        row.setOnClickListener(v -> {
+            dialog.dismiss();
+            action.run();
+        });
+
+        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(-1, 82);
+        lp.setMargins(0, 4, 0, 4);
+        box.addView(row, lp);
+    }
+
+    @Override
     void fileMenu(File f) {
         if (f == null) return;
         final boolean skk = isSkk(f.getName().toLowerCase(Locale.ROOT)) && skkInstalled();
-        final boolean archive = isArchive(f.getName().toLowerCase(Locale.ROOT));
         final boolean apk = f.getName().toLowerCase(Locale.ROOT).endsWith(".apk");
 
         LinearLayout box = new LinearLayout(this);
@@ -367,7 +379,7 @@ public class FastMainActivity extends MainActivity {
     private void addMenuItem(LinearLayout box, String label, int iconId, final Runnable action) {
         LinearLayout row = new LinearLayout(this);
         row.setOrientation(LinearLayout.HORIZONTAL);
-        row.setGravity(android.view.Gravity.CENTER_VERTICAL);
+        row.setGravity(Gravity.CENTER_VERTICAL);
         row.setPadding(12, 8, 12, 8);
         row.setBackgroundColor(Color.rgb(24, 24, 28));
 
@@ -379,7 +391,8 @@ public class FastMainActivity extends MainActivity {
         text.setText(label);
         text.setTextColor(Color.WHITE);
         text.setTextSize(16);
-        text.setGravity(android.view.Gravity.CENTER_VERTICAL);
+        text.setGravity(Gravity.CENTER_VERTICAL);
+        text.setIncludeFontPadding(false);
         text.setSingleLine(false);
         text.setPadding(14, 4, 8, 4);
         row.addView(text, new LinearLayout.LayoutParams(0, 68, 1));
@@ -393,14 +406,11 @@ public class FastMainActivity extends MainActivity {
         if (f == null) return;
         String x = f.getName().toLowerCase(Locale.ROOT);
 
-        // Özel paket/arşiv dosyaları kendi Musab Activity'lerine gider.
         if (isArchive(x) || isSkk(x)) {
             super.openFile(f);
             return;
         }
 
-        // Normal dosyalar için de Android'in harici chooser'ına düşme:
-        // her dosya önce uygun Musab Activity'sinde açılır.
         Intent internal;
         if (isImage(x)) {
             internal = new Intent(this, MusabImageViewerActivity.class);
@@ -409,7 +419,6 @@ public class FastMainActivity extends MainActivity {
         } else if (isAudio(x)) {
             internal = new Intent(this, MusabAudioPlayerActivity.class);
         } else {
-            // Metin, XML ve tanınmayan dosyalar için ortak düzenleyici.
             internal = new Intent(this, MusabTextActivity.class);
         }
         internal.putExtra("path", f.getAbsolutePath());
