@@ -181,18 +181,21 @@ public class FastMainActivity extends MainActivity {
         actions.add(() -> openXmlViewer(f));
         labels.add("Musab Arşiv Görüntüleyici");
         actions.add(() -> openArchiveViewer(f));
-        if (is3DModel(f.getName().toLowerCase(Locale.ROOT))) {
-            labels.add("Musab 3D Model Görüntüleyici");
-            actions.add(() -> open3DViewer(f));
-        }
-        if (isDexFile(f.getName().toLowerCase(Locale.ROOT))) {
-            labels.add("Dex Editör Plus");
-            actions.add(() -> openDexEditorPlus(f));
-        }
-        if (isArscFile(f.getName().toLowerCase(Locale.ROOT))) {
-            labels.add("ARSC Editör Plus");
-            actions.add(() -> openArscEditorPlus(f));
-        }
+        labels.add("Classes.dex Görüntüle / Düzenle");
+        actions.add(() -> {
+            if (isDexFile(f.getName().toLowerCase(Locale.ROOT))) openDexEditorPlus(f);
+            else toast("Bu dosya .dex değil.");
+        });
+        labels.add("resources.arsc Görüntüle / Düzenle");
+        actions.add(() -> {
+            if (isArscFile(f.getName().toLowerCase(Locale.ROOT))) openArscEditorPlus(f);
+            else toast("Bu dosya resources.arsc / .arsc değil.");
+        });
+        labels.add("3D Model Görüntüle");
+        actions.add(() -> {
+            if (is3DModel(f.getName().toLowerCase(Locale.ROOT))) open3DViewer(f);
+            else toast("Desteklenen 3D model: OBJ, STL veya PLY.");
+        });
 
         if (skkInstalled()) {
             labels.add("SKK Yükleyicisi");
