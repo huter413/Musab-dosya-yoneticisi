@@ -84,7 +84,8 @@ jobs:
         run: |
           if [ -f workspace/gradlew ]; then
             chmod +x workspace/gradlew
-            (cd workspace && ./gradlew --no-daemon assembleManagerDebug assembleSkkLoaderDebug)
+            (cd workspace && ./gradlew --no-daemon assembleManagerDebug)
+            (cd workspace && ./gradlew --no-daemon assembleSkkLoaderDebug)
           else
             (cd workspace && gradle --no-daemon assembleManagerDebug assembleSkkLoaderDebug)
           fi
@@ -103,6 +104,10 @@ jobs:
           cp "$SKK_APK" dist/skk-installer.apk
           echo "Manager: $MANAGER_APK"
           echo "SKK: $SKK_APK"
+          mkdir -p dist/both
+          cp "$MANAGER_APK" dist/both/MusabDosyaYoneticisi.apk
+          cp "$SKK_APK" dist/both/SKKYukleyicisi.apk
+          (cd dist/both && zip -q ../musab-iki-apk.zip MusabDosyaYoneticisi.apk SKKYukleyicisi.apk)
       - name: Sign APK
         if: steps.cfg.outputs.type == 'APK' && steps.cfg.outputs.sign == 'true'
         run: |
@@ -187,6 +192,13 @@ jobs:
         with:
           name: musab-dosya-yoneticisi-apk
           path: dist/musab-dosya-yoneticisi.apk
+          if-no-files-found: error
+      - name: Upload both APKs package
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: musab-iki-apk
+          path: dist/musab-iki-apk.zip
           if-no-files-found: error
       - name: Upload SKK Installer APK
         if: success()
