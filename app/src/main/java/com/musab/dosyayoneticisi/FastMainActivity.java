@@ -11,8 +11,6 @@ import android.graphics.drawable.ColorDrawable;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
-import android.os.Handler;
-import android.os.Looper;
 import android.provider.Settings;
 import android.view.Gravity;
 import android.view.MotionEvent;
@@ -29,9 +27,7 @@ import java.util.Locale;
 
 public class FastMainActivity extends MainActivity {
     private static final int REQ_NOTIFICATIONS = 7001;
-    private final Handler permissionHandler = new Handler(Looper.getMainLooper());
     private boolean notificationAsked;
-    private boolean allFilesPromptScheduled;
     private float gestureDownX;
     private float gestureDownY;
 
@@ -127,19 +123,17 @@ public class FastMainActivity extends MainActivity {
         if (Build.VERSION.SDK_INT >= 30 && !android.os.Environment.isExternalStorageManager()) {
             if (allFilesPromptScheduled) return;
             allFilesPromptScheduled = true;
-            permissionHandler.postDelayed(() -> {
+            try {
+                Intent i = new Intent(Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION);
+                i.setData(Uri.parse("package:" + getPackageName()));
+                startActivity(i);
+            } catch (Exception e) {
                 try {
-                    Intent i = new Intent(Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION);
-                    i.setData(Uri.parse("package:" + getPackageName()));
-                    startActivity(i);
-                } catch (Exception e) {
-                    try {
-                        startActivity(new Intent(Settings.ACTION_MANAGE_ALL_FILES_ACCESS_PERMISSION));
-                    } catch (Exception ignored) {
-                        toast("Android tüm dosyalara erişim ayarını açamadı.");
-                    }
+                    startActivity(new Intent(Settings.ACTION_MANAGE_ALL_FILES_ACCESS_PERMISSION));
+                } catch (Exception ignored) {
+                    toast("Android tüm dosyalara erişim ayarını açamadı.");
                 }
-            }, 15000L);
+            }
             return;
         }
         if (current != null && root != null && list != null) refresh();
@@ -151,7 +145,7 @@ public class FastMainActivity extends MainActivity {
         if (Build.VERSION.SDK_INT >= 30 && android.os.Environment.isExternalStorageManager()) {
             if (current != null && current.equals(STORAGE) && root != null && list != null) refresh();
         }
-        permissionHandler.postDelayed(this::maybeRequestNotifications, 350);
+        maybeRequestNotifications();
     }
 
     private void maybeRequestNotifications() {
