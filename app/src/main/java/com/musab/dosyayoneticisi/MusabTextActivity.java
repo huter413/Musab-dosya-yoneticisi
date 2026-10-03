@@ -22,6 +22,7 @@ public class MusabTextActivity extends Activity {
         if (Build.VERSION.SDK_INT >= 30) getWindow().setDecorFitsSystemWindows(true);
         getWindow().setNavigationBarColor(Color.rgb(12,12,14));
         getWindow().setStatusBarColor(Color.rgb(12,12,14));
+        getWindow().setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE);
         String p=getIntent().getStringExtra("path");
         file=p==null?null:new File(p);
         archiveTemp=getIntent().getBooleanExtra("archiveTemp",false);
@@ -71,7 +72,8 @@ public class MusabTextActivity extends Activity {
         exit.setOnClickListener(v->confirmExit());
         actions.addView(exit,new LinearLayout.LayoutParams(0,64,1));
 
-        root.addView(actions,new LinearLayout.LayoutParams(-1,76));
+        // Alt çubuk sabit yükseklikte kırpılmasın: Kaydet ve Çık her zaman görünür kalsın.
+        root.addView(actions,new LinearLayout.LayoutParams(-1,-2));
         setContentView(root);
 
         root.setOnApplyWindowInsetsListener((v, insets) -> {
@@ -81,7 +83,10 @@ public class MusabTextActivity extends Activity {
             } else {
                 bottom = insets.getSystemWindowInsetBottom();
             }
-            actions.setPadding(8,4,8,Math.max(8,bottom + 4));
+            actions.setPadding(8,4,8,Math.max(10,bottom + 6));
+            LinearLayout.LayoutParams lp=(LinearLayout.LayoutParams)actions.getLayoutParams();
+            lp.height=LinearLayout.LayoutParams.WRAP_CONTENT;
+            actions.setLayoutParams(lp);
             actions.requestLayout();
             return insets;
         });
