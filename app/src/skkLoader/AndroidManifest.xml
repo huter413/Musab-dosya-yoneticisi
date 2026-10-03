@@ -15,11 +15,7 @@
                 <data android:scheme="content" android:pathPattern=".*\\.skk"/>
                 <data android:scheme="file" android:pathPattern=".*\\.skk"/>
             </intent-filter>
-            <intent-filter>
-                <action android:name="android.intent.action.MAIN"/>
-                <category android:name="android.intent.category.LAUNCHER"/>
-            </intent-filter>
-        </activity>
+         </activity>
 
         <!-- SKK Loader flavor must contain only the installer. Remove every manager entry point. -->
         <activity android:name=".FastMainActivity" tools:node="remove"/>
