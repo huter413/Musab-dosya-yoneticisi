@@ -139,7 +139,6 @@ public class FastMainActivity extends MainActivity {
         requestPermissions(new String[]{Manifest.permission.POST_NOTIFICATIONS}, REQ_NOTIFICATIONS);
     }
 
-    @Override
     void openWithOptions(File f) {
         if (f == null) return;
         ArrayList<String> labels = new ArrayList<>();
