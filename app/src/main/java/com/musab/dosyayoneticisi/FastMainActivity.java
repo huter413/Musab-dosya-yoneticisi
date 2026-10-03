@@ -52,6 +52,8 @@ public class FastMainActivity extends MainActivity {
                 }
             }
         }
+        current = new File("/");
+        refresh();
         restoreLargerUi();
     }
 
@@ -106,6 +108,14 @@ public class FastMainActivity extends MainActivity {
             current = new File("/");
             refresh();
             return;
+        }
+        String normalized = path.replace('\\', '/');
+        String storagePath = STORAGE.getAbsolutePath();
+        if (normalized.equalsIgnoreCase(storagePath) || normalized.toLowerCase(Locale.ROOT).startsWith(storagePath.toLowerCase(Locale.ROOT) + "/")) {
+            if (Build.VERSION.SDK_INT >= 30 && !android.os.Environment.isExternalStorageManager()) {
+                requestStorageAccess();
+                return;
+            }
         }
         super.navigate(path);
     }
