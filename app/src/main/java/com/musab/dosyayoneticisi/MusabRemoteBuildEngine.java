@@ -10,17 +10,20 @@ import java.nio.charset.StandardCharsets;
 public final class MusabRemoteBuildEngine {
     public interface Listener { void progress(int value,String message); void success(File output,String message); void failure(String message); }
 
-    private static final String SERVICE_URL="https://musab-build-service.example.com/build";
-    // GitHub credentials must never be embedded in the APK. Use the build service / GitHub Secrets server-side.
+    // The URL is supplied at build time by the protected MUSAB_BUILD_SERVICE_URL secret/property.
+    // No GitHub token is embedded in the APK.
+    private static final String SERVICE_URL = BuildConfig.MUSAB_BUILD_SERVICE_URL;
 
     public MusabRemoteBuildEngine(){}
 
     public void build(final File source,final String type,final boolean sign,final String javaVersion,final String target,final Listener listener){
         new Thread(()->{
             try{
+                if(SERVICE_URL==null||SERVICE_URL.trim().isEmpty())
+                    throw new IOException("Gerçek derleme servisi adresi APK derlemesine eklenmemiş (MUSAB_BUILD_SERVICE_URL).\nGitHub Actions gizli yapılandırması eksik.");
                 if(source==null||!source.isFile())throw new IOException("Kaynak dosya bulunamadı.");
                 if(source.length()>45L*1024L*1024L)throw new IOException("Kaynak 45 MB sınırını aşıyor.");
-                listener.progress(5,"Güvenli derleme servisine bağlanılıyor...");
+                listener.progress(5,"Güvenli gerçek derleme servisine bağlanılıyor...");
                 JSONObject req=new JSONObject();
                 req.put("type",type);req.put("sign",sign);req.put("javaVersion",javaVersion);req.put("target",target);
                 req.put("sourceName",source.getName());
@@ -42,7 +45,7 @@ public final class MusabRemoteBuildEngine {
 
     private JSONObject post(JSONObject body)throws Exception{
         HttpURLConnection c=(HttpURLConnection)new URL(SERVICE_URL).openConnection();
-        c.setRequestMethod("POST");c.setConnectTimeout(20000);c.setReadTimeout(15*60*1000);
+        c.setRequestMethod("POST");c.setConnectTimeout(20000);c.setReadTimeout(20*60*1000);
         c.setRequestProperty("Content-Type","application/json");c.setRequestProperty("Accept","application/json");
         c.setDoOutput(true);
         try(OutputStream o=c.getOutputStream()){o.write(body.toString().getBytes(StandardCharsets.UTF_8));}
