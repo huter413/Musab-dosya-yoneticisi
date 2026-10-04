@@ -14,11 +14,15 @@ on:
       - "build-input/**/material-source.zip"
       - "build-input/**/input.apk"
       - ".github/workflows/remote-build.yml"
+  workflow_dispatch:
+
 jobs:
   build-project:
     runs-on: ubuntu-latest
     permissions:
       contents: read
+    env:
+      MUSAB_BUILD_SERVICE_URL: ${{ secrets.MUSAB_BUILD_SERVICE_URL }}
     steps:
       - uses: actions/checkout@v4
       - name: Read build request
@@ -188,6 +192,7 @@ jobs:
           echo "Tür: ${{ steps.cfg.outputs.type }}" > dist/build-info.txt
           echo "Minecraft Java: ${{ steps.cfg.outputs.java_version }}" >> dist/build-info.txt
           echo "Hedef: ${{ steps.cfg.outputs.target }}" >> dist/build-info.txt
+          if [ -n "$MUSAB_BUILD_SERVICE_URL" ]; then echo "Build service URL: configured" >> dist/build-info.txt; else echo "Build service URL: not configured" >> dist/build-info.txt; fi
       - name: Upload Musab build output
         if: success() && (steps.cfg.outputs.type == 'APK' || steps.cfg.outputs.type == 'JAR')
         uses: actions/upload-artifact@v4
