@@ -7,6 +7,7 @@ const { execFileSync } = require("child_process");
 
 const app = express();
 app.disable("x-powered-by");
+app.set("trust proxy", 1);
 app.use(express.json({ limit: "60mb" }));
 
 const PORT = Number(process.env.PORT || 8080);
@@ -14,13 +15,17 @@ const REPO = process.env.GITHUB_REPOSITORY || "huter413/Musab-dosya-yoneticisi";
 const TOKEN = process.env.GITHUB_TOKEN;
 const MAX_SOURCE_BYTES = 45 * 1024 * 1024;
 const BUILD_TIMEOUT_MS = 20 * 60 * 1000;
+const MAX_CONCURRENT_BUILDS = 2;
+let activeBuilds = 0;
 
 if (!TOKEN) console.warn("GITHUB_TOKEN is not configured; build requests will be rejected.");
 
-app.get("/health", (_req, res) => res.json({ state: "ok", service: "musab-build-service", repository: REPO }));
+app.get("/", (_req, res) => res.json({ state: "ok", service: "musab-build-service", protocol: "http", repository: REPO, endpoint: "/build" }));
+app.get("/health", (_req, res) => res.json({ state: "ok", service: "musab-build-service", protocol: "http", repository: REPO, activeBuilds }));
 
 app.post("/build", async (req, res) => {
   if (!TOKEN) return res.status(503).json({ state: "failed", error: "Build service GitHub token is not configured." });
+  if (activeBuilds >= MAX_CONCURRENT_BUILDS) return res.status(429).json({ state: "failed", error: "Derleme kuyruğu dolu; biraz sonra tekrar deneyin." });
 
   const { type, sign, javaVersion, target, sourceName, sourceBase64 } = req.body || {};
   if (!sourceBase64 || !["APK", "JAR"].includes(type)) {
@@ -37,6 +42,7 @@ app.post("/build", async (req, res) => {
     return res.status(413).json({ state: "failed", error: "Kaynak dosyası 45 MB sınırını aşamaz." });
   }
 
+  activeBuilds++;
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "musab-build-"));
   const safeName = String(sourceName || "source.zip").toLowerCase().endsWith(".jar") ? "source.jar" : "source.zip";
   const source = path.join(dir, safeName);
@@ -54,8 +60,6 @@ app.post("/build", async (req, res) => {
       sourceName: safeName
     });
 
-    // Create both input files as blobs and publish them in ONE commit.
-    // This prevents Actions from starting on a half-written build request.
     const configBlob = await gh(`/repos/${REPO}/git/blobs`, "POST", {
       encoding: "base64",
       content: Buffer.from(configJson).toString("base64")
@@ -77,6 +81,12 @@ app.post("/build", async (req, res) => {
       parents: [baseCommit.sha]
     });
     await gh(`/repos/${REPO}/git/refs`, "POST", { ref: `refs/heads/${branch}`, sha: commit.sha });
+
+    // GITHUB_TOKEN-created pushes do not trigger push workflows. Explicitly dispatch
+    // the build workflow on the temporary branch instead.
+    await gh(`/repos/${REPO}/actions/workflows/remote-build.yml/dispatches`, "POST", {
+      ref: branch
+    });
 
     const run = await waitRun(branch);
     if (run.conclusion !== "success") {
@@ -106,9 +116,9 @@ app.post("/build", async (req, res) => {
     console.error(e);
     return res.status(500).json({ state: "failed", error: e.message || String(e) });
   } finally {
-    // Build branches contain only temporary source input; remove them after the run.
     try { await gh(`/repos/${REPO}/git/refs/heads/${branch}`, "DELETE"); } catch (cleanupError) { console.warn("Build branch cleanup failed:", cleanupError.message); }
     fs.rmSync(dir, { recursive: true, force: true });
+    activeBuilds--;
   }
 });
 
@@ -131,8 +141,8 @@ async function gh(p, method = "GET", body) {
 async function waitRun(branch) {
   const deadline = Date.now() + BUILD_TIMEOUT_MS;
   while (Date.now() < deadline) {
-    const x = await gh(`/repos/${REPO}/actions/runs?branch=${encodeURIComponent(branch)}&event=push&per_page=20`);
-    const r = (x.workflow_runs || []).find(y => y.head_branch === branch);
+    const x = await gh(`/repos/${REPO}/actions/runs?branch=${encodeURIComponent(branch)}&event=workflow_dispatch&per_page=20`);
+    const r = (x.workflow_runs || []).find(y => y.head_branch === branch && y.event === "workflow_dispatch");
     if (r && r.status === "completed") return r;
     await new Promise(resolve => setTimeout(resolve, 5000));
   }
@@ -155,4 +165,4 @@ function walk(root) {
   return out;
 }
 
-app.listen(PORT, () => console.log(`Musab build service listening on ${PORT}`));
+app.listen(PORT, () => console.log(`Musab build service listening on HTTP port ${PORT}`));
