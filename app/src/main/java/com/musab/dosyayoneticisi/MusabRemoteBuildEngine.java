@@ -10,25 +10,24 @@ import java.nio.charset.StandardCharsets;
 public final class MusabRemoteBuildEngine {
     public interface Listener { void progress(int value,String message); void success(File output,String message); void failure(String message); }
 
-    // The URL is supplied at build time by the protected MUSAB_BUILD_SERVICE_URL secret/property.
-    // No GitHub token is embedded in the APK.
-    private static final String SERVICE_URL = BuildConfig.MUSAB_BUILD_SERVICE_URL;
+    private static final String CONFIGURED_SERVICE_URL = BuildConfig.MUSAB_BUILD_SERVICE_URL;
+    private static final String SERVICE_URL_CONFIG = "https://raw.githubusercontent.com/huter413/Musab-dosya-yoneticisi/main/service-url.json";
 
     public MusabRemoteBuildEngine(){}
 
     public void build(final File source,final String type,final boolean sign,final String javaVersion,final String target,final Listener listener){
         new Thread(()->{
             try{
-                if(SERVICE_URL==null||SERVICE_URL.trim().isEmpty())
-                    throw new IOException("Gerçek derleme servisi adresi APK derlemesine eklenmemiş (MUSAB_BUILD_SERVICE_URL).\nGitHub Actions gizli yapılandırması eksik.");
                 if(source==null||!source.isFile())throw new IOException("Kaynak dosya bulunamadı.");
                 if(source.length()>45L*1024L*1024L)throw new IOException("Kaynak 45 MB sınırını aşıyor.");
-                listener.progress(5,"Güvenli gerçek derleme servisine bağlanılıyor...");
+                listener.progress(3,"Gerçek derleme servisi bulunuyor...");
+                String serviceUrl=resolveServiceUrl();
+                listener.progress(8,"Gerçek derleme servisine bağlanılıyor...");
                 JSONObject req=new JSONObject();
                 req.put("type",type);req.put("sign",sign);req.put("javaVersion",javaVersion);req.put("target",target);
                 req.put("sourceName",source.getName());
                 req.put("sourceBase64",Base64.encodeToString(readAll(new FileInputStream(source)),Base64.NO_WRAP));
-                JSONObject res=post(req);
+                JSONObject res=post(serviceUrl,req);
                 String state=res.optString("state");
                 if("failed".equals(state))throw new IOException(res.optString("error","Derleme başarısız."));
                 if(!"success".equals(state))throw new IOException("Derleme servisi beklenmeyen durum döndürdü: "+state);
@@ -43,8 +42,28 @@ public final class MusabRemoteBuildEngine {
         }).start();
     }
 
-    private JSONObject post(JSONObject body)throws Exception{
-        HttpURLConnection c=(HttpURLConnection)new URL(SERVICE_URL).openConnection();
+    private String resolveServiceUrl() throws Exception{
+        if(CONFIGURED_SERVICE_URL!=null&&!CONFIGURED_SERVICE_URL.trim().isEmpty()) return normalize(CONFIGURED_SERVICE_URL);
+        HttpURLConnection c=(HttpURLConnection)new URL(SERVICE_URL_CONFIG).openConnection();
+        c.setRequestMethod("GET");c.setConnectTimeout(15000);c.setReadTimeout(15000);
+        c.setRequestProperty("Accept","application/json");
+        int code=c.getResponseCode();
+        if(code<200||code>=300)throw new IOException("Derleme servisi yapılandırması HTTP "+code);
+        JSONObject cfg=new JSONObject(readText(c.getInputStream()));
+        String url=cfg.optString("url","").trim();
+        if(url.isEmpty())throw new IOException("Gerçek derleme servisi henüz çevrimiçi değil.");
+        return normalize(url);
+    }
+
+    private static String normalize(String url){
+        url=url.trim();
+        while(url.endsWith("/"))url=url.substring(0,url.length()-1);
+        if(!url.endsWith("/build"))url+="/build";
+        return url;
+    }
+
+    private JSONObject post(String url,JSONObject body)throws Exception{
+        HttpURLConnection c=(HttpURLConnection)new URL(url).openConnection();
         c.setRequestMethod("POST");c.setConnectTimeout(20000);c.setReadTimeout(20*60*1000);
         c.setRequestProperty("Content-Type","application/json");c.setRequestProperty("Accept","application/json");
         c.setDoOutput(true);
