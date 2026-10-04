@@ -25,6 +25,7 @@ jobs:
         id: cfg
         shell: bash
         run: |
+          set -e
           SOURCE=$(find build-input -type f \( -name source.zip -o -name source.jar \) 2>/dev/null | head -n 1 || true)
           if [ -n "$SOURCE" ]; then
             DIR=$(dirname "$SOURCE")
@@ -48,7 +49,9 @@ jobs:
         uses: actions/setup-java@v5
         with:
           distribution: temurin
-          java-version: ${{ contains(steps.cfg.outputs.java_version, '1.21') && '21' || contains(steps.cfg.outputs.java_version, '1.20') && '21' || contains(steps.cfg.outputs.java_version, '1.19') && '17' || contains(steps.cfg.outputs.java_version, '1.18') && '17' || contains(steps.cfg.outputs.java_version, '1.17') && '17' || contains(steps.cfg.outputs.java_version, '1.16') && '11' || '17' }}
+          # Minecraft 1.20.x and 1.19.x projects normally target Java 17;
+          # only 1.21.x is mapped to Java 21 here.
+          java-version: ${{ contains(steps.cfg.outputs.java_version, '1.21') && '21' || contains(steps.cfg.outputs.java_version, '1.20') && '17' || contains(steps.cfg.outputs.java_version, '1.19') && '17' || contains(steps.cfg.outputs.java_version, '1.18') && '17' || contains(steps.cfg.outputs.java_version, '1.17') && '17' || contains(steps.cfg.outputs.java_version, '1.16') && '11' || '17' }}
       - name: Install Android SDK
         if: steps.cfg.outputs.type == 'APK'
         uses: android-actions/setup-android@v3
@@ -61,6 +64,7 @@ jobs:
           echo "$PWD/gradle-8.10.2/bin" >> "$GITHUB_PATH"
       - name: Extract source
         run: |
+          set -e
           rm -rf workspace dist
           mkdir -p workspace dist
           if [ -n "${{ steps.cfg.outputs.source }}" ]; then
@@ -82,6 +86,7 @@ jobs:
       - name: Build Android APK
         if: steps.cfg.outputs.type == 'APK'
         run: |
+          set -e
           if [ -f workspace/gradlew ]; then
             chmod +x workspace/gradlew
             (cd workspace && ./gradlew --no-daemon assembleManagerDebug)
@@ -92,7 +97,6 @@ jobs:
           APK_COUNT=$(find workspace -type f -path '*/build/outputs/apk/*/*.apk' | wc -l)
           echo "Bulunan APK sayısı: $APK_COUNT"
           [ "$APK_COUNT" -ge 2 ] || { echo "İki APK bekleniyordu"; find workspace -type f -path '*/build/outputs/apk/*/*.apk' -print; exit 20; }
-          # Önce Gradle'ın bu projedeki kesin çıktı yollarını kullan.
           MANAGER_APK="workspace/app/build/outputs/apk/manager/debug/app-manager-debug.apk"
           SKK_APK="workspace/app/build/outputs/apk/skkLoader/debug/app-skkLoader-debug.apk"
           [ -f "$MANAGER_APK" ] || MANAGER_APK=$(find workspace -type f -path '*/build/outputs/apk/*/*.apk' ! -iname '*skk*' | head -n1 || true)
@@ -102,8 +106,6 @@ jobs:
           [ "$MANAGER_APK" != "$SKK_APK" ] || { echo "Manager ve SKK aynı APK seçildi"; exit 23; }
           cp "$MANAGER_APK" dist/musab-dosya-yoneticisi.apk
           cp "$SKK_APK" dist/skk-installer.apk
-          echo "Manager: $MANAGER_APK"
-          echo "SKK: $SKK_APK"
           mkdir -p dist/both
           cp "$MANAGER_APK" dist/both/MusabDosyaYoneticisi.apk
           cp "$SKK_APK" dist/both/SKKYukleyicisi.apk
@@ -111,6 +113,7 @@ jobs:
       - name: Sign APK
         if: steps.cfg.outputs.type == 'APK' && steps.cfg.outputs.sign == 'true'
         run: |
+          set -e
           keytool -genkeypair -v -keystore dist/musab-build.jks -storepass changeit -keypass changeit -alias musab -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=Musab Build"
           for APK in dist/musab-dosya-yoneticisi.apk dist/skk-installer.apk; do
             BASE="${APK%.apk}"
@@ -122,6 +125,7 @@ jobs:
       - name: Build JAR
         if: steps.cfg.outputs.type == 'JAR'
         run: |
+          set -e
           if [ -f workspace/gradlew ]; then
             chmod +x workspace/gradlew
             (cd workspace && ./gradlew --no-daemon jar)
@@ -146,6 +150,7 @@ jobs:
       - name: Sign JAR
         if: steps.cfg.outputs.type == 'JAR' && steps.cfg.outputs.sign == 'true'
         run: |
+          set -e
           keytool -genkeypair -v -keystore dist/musab-jar.jks -storepass changeit -keypass changeit -alias musab -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=Musab Build"
           jarsigner -keystore dist/musab-jar.jks -storepass changeit -keypass changeit dist/output.jar musab
           jarsigner -verify dist/output.jar
@@ -159,15 +164,14 @@ jobs:
           mkdir material-source
           unzip -q "$(find build-input -type f -name material-source.zip | head -n1)" -d material-source
           (cd material-tool && chmod +x gradlew && ./gradlew --no-daemon shadowJar)
-          TOOL=$(find material-tool/build -type f -name '*all*.jar' -o -name '*shadow*.jar' | head -n1)
+          TOOL=$(find material-tool/build -type f \( -name '*all*.jar' -o -name '*shadow*.jar' \) | head -n1)
           [ -n "$TOOL" ] || { echo "MaterialBinTool JAR bulunamadı"; exit 40; }
           INPUT=$(find material-source -type f -name '*.json' | head -n1)
           [ -n "$INPUT" ] || { echo "Material source JSON bulunamadı"; exit 41; }
           java -jar "$TOOL" -c "$INPUT" -o dist
-          BIN=$(find dist -type f -name '*.material.bin' -o -name 'material.bin' | head -n1)
+          BIN=$(find dist -type f \( -name '*.material.bin' -o -name 'material.bin' \) | head -n1)
           [ -n "$BIN" ] || { echo "material.bin üretilemedi"; exit 42; }
           cp "$BIN" dist/material.bin
-
       - name: Decompile APK with Apktool
         if: hashFiles('build-input/**/input.apk') != ''
         shell: bash
@@ -179,7 +183,6 @@ jobs:
           APK=$(find build-input -type f -name 'input.apk' | head -n1)
           java -jar apktool.jar d -f "$APK" -o dist/apk-decompiled
           echo "Patch=Hayır" > dist/apk-decompiled/.musab_patch_status
-
       - name: Write metadata
         if: always()
         run: |
