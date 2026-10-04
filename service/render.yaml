@@ -1,0 +1,13 @@
+services:
+  - type: web
+    name: musab-build-service
+    runtime: docker
+    dockerfilePath: ./service/Dockerfile
+    dockerContext: .
+    healthCheckPath: /health
+    autoDeploy: true
+    envVars:
+      - key: GITHUB_REPOSITORY
+        value: huter413/Musab-dosya-yoneticisi
+      - key: GITHUB_TOKEN
+        sync: false
