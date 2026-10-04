@@ -2,6 +2,12 @@ name: Musab Build Service HTTP
 
 on:
   workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - ".github/workflows/build-service-tunnel.yml"
+      - "service/**"
 
 permissions:
   contents: write
@@ -56,8 +62,6 @@ jobs:
           curl -fsS "$URL/health"
 
       - name: Publish service URL
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -euo pipefail
           jq -n \
@@ -74,7 +78,6 @@ jobs:
       - name: Keep HTTP service alive
         run: |
           set -euo pipefail
-          trap 'printf "%s\n" "state=offline" > /tmp/offline-state' EXIT
           for i in $(seq 1 330); do
             if ! curl -fsS http://127.0.0.1:8080/health >/dev/null; then
               echo "Build service stopped unexpectedly."
@@ -86,8 +89,6 @@ jobs:
 
       - name: Mark service offline
         if: always()
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -euo pipefail
           jq -n '{url:"",state:"offline",service:"musab-build-service",protocol:"http"}' > service-url.json
