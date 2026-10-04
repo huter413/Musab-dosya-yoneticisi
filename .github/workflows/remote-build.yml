@@ -49,8 +49,6 @@ jobs:
         uses: actions/setup-java@v5
         with:
           distribution: temurin
-          # Minecraft 1.20.x and 1.19.x projects normally target Java 17;
-          # only 1.21.x is mapped to Java 21 here.
           java-version: ${{ contains(steps.cfg.outputs.java_version, '1.21') && '21' || contains(steps.cfg.outputs.java_version, '1.20') && '17' || contains(steps.cfg.outputs.java_version, '1.19') && '17' || contains(steps.cfg.outputs.java_version, '1.18') && '17' || contains(steps.cfg.outputs.java_version, '1.17') && '17' || contains(steps.cfg.outputs.java_version, '1.16') && '11' || '17' }}
       - name: Install Android SDK
         if: steps.cfg.outputs.type == 'APK'
@@ -186,25 +184,37 @@ jobs:
       - name: Write metadata
         if: always()
         run: |
+          mkdir -p dist
           echo "Tür: ${{ steps.cfg.outputs.type }}" > dist/build-info.txt
           echo "Minecraft Java: ${{ steps.cfg.outputs.java_version }}" >> dist/build-info.txt
           echo "Hedef: ${{ steps.cfg.outputs.target }}" >> dist/build-info.txt
+      - name: Upload Musab build output
+        if: success() && (steps.cfg.outputs.type == 'APK' || steps.cfg.outputs.type == 'JAR')
+        uses: actions/upload-artifact@v4
+        with:
+          name: musab-build-output
+          path: |
+            dist/musab-dosya-yoneticisi.apk
+            dist/skk-installer.apk
+            dist/output.jar
+            dist/musab-iki-apk.zip
+          if-no-files-found: error
       - name: Upload Musab Dosya Yöneticisi APK
-        if: success()
+        if: success() && steps.cfg.outputs.type == 'APK'
         uses: actions/upload-artifact@v4
         with:
           name: musab-dosya-yoneticisi-apk
           path: dist/musab-dosya-yoneticisi.apk
           if-no-files-found: error
       - name: Upload both APKs package
-        if: success()
+        if: success() && steps.cfg.outputs.type == 'APK'
         uses: actions/upload-artifact@v4
         with:
           name: musab-iki-apk
           path: dist/musab-iki-apk.zip
           if-no-files-found: error
       - name: Upload SKK Installer APK
-        if: success()
+        if: success() && steps.cfg.outputs.type == 'APK'
         uses: actions/upload-artifact@v4
         with:
           name: skk-installer-apk
