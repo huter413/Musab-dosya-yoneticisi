@@ -3,12 +3,20 @@ plugins { id("com.android.application") }
 android {
     namespace = "com.musab.dosyayoneticisi"
     compileSdk = 35
+
+    buildFeatures { buildConfig = true }
+
     defaultConfig {
         applicationId = "com.musab.dosyayoneticisi"
         minSdk = 26
         targetSdk = 35
         versionCode = 4
         versionName = "1.2.1"
+
+        val serviceUrl = providers.gradleProperty("musabBuildServiceUrl")
+            .orElse(System.getenv("MUSAB_BUILD_SERVICE_URL") ?: "")
+            .get()
+        buildConfigField("String", "MUSAB_BUILD_SERVICE_URL", "\"${serviceUrl.replace("\\", "\\\\").replace("\"", "\\\"")}\"")
     }
 
     flavorDimensions += "product"
